@@ -286,9 +286,10 @@
       "parameters": {
         "model": {
           "__rl": true,
-          "mode": "list",
+          "mode": "id",
           "value": "gpt-4.1-mini"
         },
+        "responsesApiEnabled": false,
         "options": {}
       }
     },
