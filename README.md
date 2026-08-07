@@ -15,9 +15,11 @@ real instance, and validated in CI.
 
 <!-- BEGIN TEMPLATES -->
 
-_No templates published yet._
+### AI
 
-The first four are in progress — see [docs/authoring.md](docs/authoring.md).
+| Template                                                                                              | What it does                                                                                                                                                                                                                                                 | Uses                                                                                      |
+| ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| [Weekly AI news digest from multiple sites](templates/weekly-ai-news-digest-from-multiple-sites.json) | Runs a Gluecrawl job per news site every Monday, keeps every headline it has ever seen in an n8n data table, and asks an LLM to write a digest of only the stories that are new this week. For anyone who wants one edited summary instead of ten open tabs. | Chain Llm, Code, Data Table, Gluecrawl, Lm Chat Open Ai, Manual Trigger, Schedule Trigger |
 
 <!-- END TEMPLATES -->
 

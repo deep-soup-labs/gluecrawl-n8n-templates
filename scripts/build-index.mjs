@@ -6,6 +6,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { format, resolveConfig } from 'prettier';
 import { REPO_ROOT, describe, listTemplateFiles, readTemplate } from './lib/templates.mjs';
 
 const README = join(REPO_ROOT, 'README.md');
@@ -55,8 +56,13 @@ if (begin === -1 || end === -1) {
 	process.exit(1);
 }
 
-const updated =
+// Hand the spliced result through Prettier before writing or comparing. The
+// index is a Markdown table whose column widths depend on the longest title
+// and description, and `format:check` would otherwise repad every row this
+// script emits — leaving the two gates permanently unable to agree.
+const spliced =
 	readme.slice(0, begin + BEGIN.length) + '\n\n' + render(entries) + '\n\n' + readme.slice(end);
+const updated = await format(spliced, { ...(await resolveConfig(README)), filepath: README });
 
 if (process.argv.includes('--check')) {
 	if (updated !== readme) {

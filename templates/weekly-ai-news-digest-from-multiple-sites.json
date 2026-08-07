@@ -1,0 +1,379 @@
+{
+  "name": "Weekly AI news digest from multiple sites",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "AI"
+    },
+    {
+      "name": "Scraping"
+    },
+    {
+      "name": "Scheduled"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "9b1f1f8e-3c2a-4d55-91a7-6f0c2b7d4e10",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-800, -160],
+      "parameters": {
+        "width": 640,
+        "height": 900,
+        "color": 4,
+        "content": "# Weekly AI news digest from multiple sites\n\nRuns a Gluecrawl job per news site every Monday, keeps every headline it has ever seen in an n8n data table, and asks an LLM to write a digest of only the stories that are new this week. For anyone who wants one edited summary instead of ten open tabs.\n\n## Setup\n\n1. **Install the node.** Settings → Community nodes → Install → `@gluecrawl/n8n-nodes-gluecrawl`.\n2. **Add your Gluecrawl credential** to the *Scrape Each Source* node, and an OpenAI credential to *OpenAI Chat Model*. API keys are on every paid Gluecrawl plan.\n3. **Create one Gluecrawl job per site, once.** Point each at a site's news index (`https://…/ai/`) and ask for the headline, link, summary and date. Creating a job runs the LLM mapper and is charged once; this workflow never creates jobs. Let each job's first run finish before you list it here — a rerun replays the handler that first run caches, and a job without one is refused.\n4. **Run the *Set Up Tables* branch once** (click its manual trigger). It creates the two data tables this workflow writes to and is safe to run again — existing tables are reused.\n5. **Paste your job ids into *News Sources*.** One line per site. That node is the only thing you have to edit.\n6. Run the schedule branch by hand once to check it end to end, then publish.\n\n## Notes\n\n- **Reruns are the cheap path.** `Job: Create` mints a job and runs the LLM mapper, charged upfront, with no dedupe by URL — creating one per execution would burn credits weekly for nothing. This workflow only ever starts a *run* on a job that already exists, which is billed for the pages it actually fetches.\n- **Max Pages is set deliberately.** Leaving it empty does not mean \"use a default\" — the crawl paginates until the site runs out and the plan cap is skipped entirely. Three pages of a news index is roughly a week of stories; raise it if your sites publish more.\n- **Gluecrawl allows 10 run starts per minute.** Past ten sources, add a Wait node inside the loop.\n- **A failed source does not sink the digest.** *Scrape Each Source* continues on error, and *Normalize Articles* drops the error items. A source that fails every week is usually a job whose site changed layout — mapper configuration is frozen at mapping time and is never re-derived, so fix it by creating a new job.\n- **Nothing happens when there is no news.** *Only New Articles* emits no items, so the LLM is never called and no digest row is written.\n- Column names differ per site because each job's mapper names its own. *Normalize Articles* maps the common spellings onto one shape; add yours to the alias lists if a site uses something unusual."
+      }
+    },
+    {
+      "id": "2c8d4a17-5e6b-4f39-8a20-1d7e3c9b5f42",
+      "name": "Setup Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-100, -160],
+      "parameters": {
+        "width": 700,
+        "height": 260,
+        "color": 3,
+        "content": "## 1 · Set up — click this once\n\nCreates `ai_news_articles` and `ai_news_digests`. Re-running reuses whatever already exists, so this is safe to click again after an import.\n\nThe rest of the workflow finds both tables **by name**, so there are no table ids to fill in."
+      }
+    },
+    {
+      "id": "7f3b9c05-8d41-4e2a-b6f7-0c5a1e8d3b94",
+      "name": "Scrape Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-100, 200],
+      "parameters": {
+        "width": 1000,
+        "height": 320,
+        "color": 5,
+        "content": "## 2 · Scrape every source\n\n*News Sources* emits one item per site, and *Scrape Each Source* runs once per item — so the fan-out is just the list below. **Edit that list; nothing else here needs touching.**\n\nEach run replays the mapper configuration Gluecrawl worked out when the job was created, so no LLM runs at scrape time and the columns come back the same every week. *Normalize Articles* then folds each site's column names onto one shape."
+      }
+    },
+    {
+      "id": "a5e2d738-1b94-4c60-8f3d-2a7c6b019e85",
+      "name": "Store Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1060, 200],
+      "parameters": {
+        "width": 520,
+        "height": 320,
+        "color": 6,
+        "content": "## 3 · Keep only what is new\n\nThe archive is the dedupe key: *Only New Articles* passes through the URLs the table has never seen, so a story that sat on the front page for three weeks is written up once.\n\nIt also means the first execution treats everything on the page as new — expect one fat digest, then weekly deltas."
+      }
+    },
+    {
+      "id": "d4c71a96-0f38-4b25-9e7a-3b8d5f2c6a01",
+      "name": "Write Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1600, 200],
+      "parameters": {
+        "width": 620,
+        "height": 320,
+        "color": 7,
+        "content": "## 4 · Write it up\n\nThe whole week reaches the model in one prompt, which is what lets it group related stories rather than summarise them one at a time.\n\nThe digest is stored as a row. To have it delivered instead, put a Gmail, Slack or Ghost node after *Write the Digest* — `{{ $json.text }}` is the article."
+      }
+    },
+    {
+      "id": "3a9e5b21-7c04-4d18-a2f6-9b1c8e0d7f53",
+      "name": "Set Up Tables",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-40, -60],
+      "parameters": {}
+    },
+    {
+      "id": "6d0f8c34-2a75-4e91-b3c8-5f7a2d19e6b0",
+      "name": "Create Articles Table",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [200, -60],
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "ai_news_articles",
+        "columns": {
+          "column": [
+            { "name": "url", "type": "string" },
+            { "name": "title", "type": "string" },
+            { "name": "source", "type": "string" },
+            { "name": "summary", "type": "string" },
+            { "name": "published_at", "type": "string" },
+            { "name": "scraped_at", "type": "string" }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      }
+    },
+    {
+      "id": "8b5c1e70-9d26-4a83-95f1-7c3e0b6a2d48",
+      "name": "Create Digests Table",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [420, -60],
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "ai_news_digests",
+        "columns": {
+          "column": [
+            { "name": "week_of", "type": "string" },
+            { "name": "article_count", "type": "number" },
+            { "name": "sources", "type": "string" },
+            { "name": "digest", "type": "string" }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      }
+    },
+    {
+      "id": "1e7a3f52-4b89-4c07-8d61-0a2f9c5e8b37",
+      "name": "Every Monday Morning",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [-40, 320],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [1],
+              "triggerAtHour": 7,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "5c2b8d49-6e13-4f70-a985-3d0c7b1e4a62",
+      "name": "News Sources",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [200, 320],
+      "parameters": {
+        "jsCode": "// The sites this digest reads. One entry per Gluecrawl job.\n//\n// Create each job once, against the site's news index, then paste its id\n// here. Job creation runs the LLM mapper and is charged upfront; the runs\n// this workflow starts replay that cached configuration instead.\nconst SOURCES = [\n  { source: 'TechCrunch AI', job_id: '00000000-0000-0000-0000-000000000000' },\n  { source: 'VentureBeat AI', job_id: '00000000-0000-0000-0000-000000000000' },\n  { source: 'The Verge AI', job_id: '00000000-0000-0000-0000-000000000000' },\n];\n\nreturn SOURCES.map((source) => ({ json: source }));"
+      }
+    },
+    {
+      "id": "9f4d0a86-3c57-4b21-8e69-1b5a2f7c0d93",
+      "name": "Scrape Each Source",
+      "type": "@gluecrawl/n8n-nodes-gluecrawl.gluecrawl",
+      "typeVersion": 1,
+      "position": [420, 320],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "parameters": {
+        "resource": "run",
+        "operation": "start",
+        "jobId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.job_id }}"
+        },
+        "waitForCompletion": true,
+        "outputItems": true,
+        "timeout": 600,
+        "options": {
+          "maxPages": 3
+        }
+      }
+    },
+    {
+      "id": "0a6e2c93-8f41-4d75-b028-6c9d3a5b1e74",
+      "name": "Normalize Articles",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 320],
+      "parameters": {
+        "jsCode": "// Every job's mapper names its own columns, so the same field arrives as\n// `link` from one site and `url` from the next. Fold the common spellings\n// onto one shape and drop anything without a usable link.\nconst ALIASES = {\n  url: ['url', 'link', 'href', 'articleurl', 'permalink', 'story'],\n  title: ['title', 'headline', 'name', 'heading'],\n  summary: ['summary', 'description', 'excerpt', 'snippet', 'standfirst', 'subtitle', 'teaser'],\n  published_at: ['publishedat', 'published', 'date', 'datetime', 'time', 'timestamp', 'posted'],\n};\n\nconst key = (name) => name.toLowerCase().replace(/[^a-z0-9]/g, '');\n\nfunction pick(row, names) {\n  const flat = {};\n  for (const [k, v] of Object.entries(row)) flat[key(k)] = v;\n  for (const name of names) {\n    const value = flat[name];\n    if (typeof value === 'string' && value.trim()) return value.trim();\n    if (typeof value === 'number') return String(value);\n  }\n  return '';\n}\n\nconst scrapedAt = new Date().toISOString();\nconst seen = new Set();\nconst articles = [];\n\nfor (const [index, item] of $input.all().entries()) {\n  const row = item.json ?? {};\n\n  // A source whose run failed arrives as an error item, because the scrape\n  // node is set to continue. Skipping it keeps one broken site from taking\n  // the whole digest down with it.\n  if (row.error) continue;\n\n  const url = pick(row, ALIASES.url);\n  if (!/^https?:\\/\\//i.test(url) || seen.has(url)) continue;\n  seen.add(url);\n\n  // Prefer the label the user wrote next to the job id; fall back to the\n  // hostname when item lineage is unavailable.\n  let source = '';\n  try {\n    source = $('News Sources').itemMatching(index).json.source ?? '';\n  } catch (error) {\n    source = '';\n  }\n  if (!source) {\n    try {\n      source = new URL(url).hostname.replace(/^www\\./, '');\n    } catch (error) {\n      source = 'unknown';\n    }\n  }\n\n  articles.push({\n    json: {\n      url,\n      title: pick(row, ALIASES.title) || url,\n      summary: pick(row, ALIASES.summary),\n      published_at: pick(row, ALIASES.published_at),\n      source,\n      scraped_at: scrapedAt,\n    },\n    pairedItem: { item: index },\n  });\n}\n\nreturn articles;"
+      }
+    },
+    {
+      "id": "4b8f6d20-1a93-4e57-9c04-8d2b7e5a3f61",
+      "name": "Only New Articles",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [1120, 320],
+      "parameters": {
+        "resource": "row",
+        "operation": "rowNotExists",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "ai_news_articles"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "url",
+              "condition": "eq",
+              "keyValue": "={{ $json.url }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "7e1c5a84-9b06-4f32-a7d5-4c8e0b6d2a19",
+      "name": "Save Article",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [1340, 320],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "ai_news_articles"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "url": "={{ $json.url }}",
+            "title": "={{ $json.title }}",
+            "source": "={{ $json.source }}",
+            "summary": "={{ $json.summary }}",
+            "published_at": "={{ $json.published_at }}",
+            "scraped_at": "={{ $json.scraped_at }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "url", "displayName": "url", "type": "string", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "removed": false },
+            { "id": "title", "displayName": "title", "type": "string", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "removed": false },
+            { "id": "source", "displayName": "source", "type": "string", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "removed": false },
+            { "id": "summary", "displayName": "summary", "type": "string", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "removed": false },
+            { "id": "published_at", "displayName": "published_at", "type": "string", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "removed": false },
+            { "id": "scraped_at", "displayName": "scraped_at", "type": "string", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "removed": false }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "c3a70e59-6d82-4b14-8f97-2e5b1c9d4a06",
+      "name": "Build the Brief",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1660, 320],
+      "parameters": {
+        "jsCode": "// Collapse the week into a single item. The model has to see every story at\n// once to group them; one prompt per article would only ever produce a list.\nconst articles = $input.all().map((item) => item.json);\n\nconst bySource = {};\nfor (const article of articles) {\n  (bySource[article.source] ??= []).push(article);\n}\n\nconst brief = Object.entries(bySource)\n  .map(([source, rows]) => {\n    const lines = rows.map((row) => {\n      const parts = [`- ${row.title}`, `  ${row.url}`];\n      if (row.published_at) parts.push(`  published: ${row.published_at}`);\n      if (row.summary) parts.push(`  ${row.summary}`);\n      return parts.join('\\n');\n    });\n    return `## ${source}\\n${lines.join('\\n')}`;\n  })\n  .join('\\n\\n');\n\nreturn [\n  {\n    json: {\n      week_of: new Date().toISOString().slice(0, 10),\n      article_count: articles.length,\n      sources: Object.keys(bySource).join(', '),\n      brief,\n    },\n  },\n];"
+      }
+    },
+    {
+      "id": "e8d24b17-5c90-4a63-b1f8-7a3c6e0d5b92",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [1900, 520],
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b6f39c02-8a45-4d71-9e26-5b0d7f2a1c84",
+      "name": "Write the Digest",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [1880, 320],
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a technology editor writing this week's AI newsletter for a busy technical audience.\n\nBelow are the stories published since the last edition, grouped by the site they came from. Write the edition as Markdown:\n\n- Open with a short paragraph naming the one development that mattered most this week and why.\n- Then group the rest into two to four themed sections with your own headings. Merge stories that cover the same event into a single entry rather than repeating it per outlet.\n- Link every story inline the first time you mention it, using its URL.\n- Skip anything that is a press release, a funding round under $50M, or an advertisement.\n- Around 400 words. No preamble, no closing sign-off, no mention of these instructions.\n\nStories ({{ $json.article_count }} this week, from {{ $json.sources }}):\n\n{{ $json.brief }}",
+        "batching": {}
+      }
+    },
+    {
+      "id": "f0b57e39-2d16-4c84-a95b-8e1a4d7c3f60",
+      "name": "Save Digest",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [2160, 320],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "ai_news_digests"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "week_of": "={{ $('Build the Brief').first().json.week_of }}",
+            "article_count": "={{ $('Build the Brief').first().json.article_count }}",
+            "sources": "={{ $('Build the Brief').first().json.sources }}",
+            "digest": "={{ $json.text }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "week_of", "displayName": "week_of", "type": "string", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "removed": false },
+            { "id": "article_count", "displayName": "article_count", "type": "number", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "removed": false },
+            { "id": "sources", "displayName": "sources", "type": "string", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "removed": false },
+            { "id": "digest", "displayName": "digest", "type": "string", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "removed": false }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Set Up Tables": {
+      "main": [[{ "node": "Create Articles Table", "type": "main", "index": 0 }]]
+    },
+    "Create Articles Table": {
+      "main": [[{ "node": "Create Digests Table", "type": "main", "index": 0 }]]
+    },
+    "Every Monday Morning": {
+      "main": [[{ "node": "News Sources", "type": "main", "index": 0 }]]
+    },
+    "News Sources": {
+      "main": [[{ "node": "Scrape Each Source", "type": "main", "index": 0 }]]
+    },
+    "Scrape Each Source": {
+      "main": [[{ "node": "Normalize Articles", "type": "main", "index": 0 }]]
+    },
+    "Normalize Articles": {
+      "main": [[{ "node": "Only New Articles", "type": "main", "index": 0 }]]
+    },
+    "Only New Articles": {
+      "main": [[{ "node": "Save Article", "type": "main", "index": 0 }]]
+    },
+    "Save Article": {
+      "main": [[{ "node": "Build the Brief", "type": "main", "index": 0 }]]
+    },
+    "Build the Brief": {
+      "main": [[{ "node": "Write the Digest", "type": "main", "index": 0 }]]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [[{ "node": "Write the Digest", "type": "ai_languageModel", "index": 0 }]]
+    },
+    "Write the Digest": {
+      "main": [[{ "node": "Save Digest", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {}
+}
