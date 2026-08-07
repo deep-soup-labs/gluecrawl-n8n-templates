@@ -1,0 +1,37 @@
+{
+  "name": "gluecrawl-n8n-templates",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "n8n workflow templates for Gluecrawl — agentic web scraping in your automations.",
+  "license": "MIT",
+  "author": {
+    "name": "Deep Soup Labs",
+    "email": "support@gluecrawl.ai",
+    "url": "https://www.gluecrawl.ai"
+  },
+  "homepage": "https://github.com/deep-soup-labs/gluecrawl-n8n-templates",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deep-soup-labs/gluecrawl-n8n-templates.git"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "validate": "node scripts/validate.mjs",
+    "clean": "node scripts/clean.mjs",
+    "index": "node scripts/build-index.mjs",
+    "index:check": "node scripts/build-index.mjs --check",
+    "format": "prettier --write \"**/*.{js,mjs,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{js,mjs,json,md,yml,yaml}\"",
+    "check": "npm run validate && npm run index:check && npm run format:check",
+    "n8n:up": "docker compose up -d",
+    "n8n:down": "docker compose down",
+    "n8n:logs": "docker compose logs -f n8n",
+    "n8n:tunnel": "cloudflared tunnel --url http://localhost:5678"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.0"
+  }
+}

@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Validate templates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Structure, canvas documentation, and the credential-leak check. A
+      # template that fails here would fail an n8n Creator Hub review, or would
+      # publish something we cannot retract.
+      - run: npm run validate
+
+      # The README index is generated from the workflow files; a hand-edited
+      # one drifts from the canvas it claims to describe.
+      - run: npm run index:check
+
+      - run: npm run format:check

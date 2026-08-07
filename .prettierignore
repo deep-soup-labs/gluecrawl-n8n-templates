@@ -1,0 +1,6 @@
+node_modules/
+package-lock.json
+
+# Workflow exports are written by n8n, not by hand. Reformatting them produces
+# noise in every diff and drifts the file away from what the editor round-trips.
+templates/

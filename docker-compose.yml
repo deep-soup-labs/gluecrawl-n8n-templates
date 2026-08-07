@@ -1,0 +1,34 @@
+# Throwaway n8n for authoring and proving templates.
+#
+# Docker rather than an npm install on purpose: n8n 3.0 (October 2026) drops
+# npm-installed self-hosted n8n entirely, so a `npx n8n start` environment has a
+# fixed expiry date. This compose file is the shape that survives it.
+#
+# The volume is dedicated to this repo. A template must import cleanly onto a
+# stranger's empty instance, and authoring against an instance carrying
+# unrelated local state is how machine-specific junk ends up committed.
+
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:${N8N_VERSION:-latest}
+    restart: unless-stopped
+    ports:
+      - '5678:5678'
+    environment:
+      # Required for the Gluecrawl node to appear in an AI Agent's tool picker.
+      # Without it the agent-tool template silently has nothing to select.
+      - N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=true
+      # The Gluecrawl API rejects webhook targets that are not https on a public
+      # IP, so the Trigger node cannot register while n8n believes it lives on
+      # localhost. Point this at a tunnel hostname before doing trigger work;
+      # `n8n start --tunnel` was removed in 2.0 and is now silently ignored.
+      - N8N_WEBHOOK_URL=${N8N_WEBHOOK_URL:-}
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE:-Europe/Madrid}
+      - N8N_DIAGNOSTICS_ENABLED=false
+      # Suppresses a startup warning; irrelevant on a throwaway local instance.
+      - N8N_RUNNERS_ENABLED=true
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+volumes:
+  n8n_data:

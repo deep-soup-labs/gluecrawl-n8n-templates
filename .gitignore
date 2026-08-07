@@ -1,0 +1,11 @@
+node_modules/
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# Internal working notes. Kept on disk for local tooling, never published:
+# this repo is public and CLAUDE.md documents cross-repo behaviour that the
+# rest of the platform owns. The publishable half lives in docs/.
+CLAUDE.md
+.claude/
