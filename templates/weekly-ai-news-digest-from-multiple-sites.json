@@ -164,7 +164,7 @@
       "typeVersion": 2,
       "position": [200, 320],
       "parameters": {
-        "jsCode": "// The sites this digest reads. One entry per Gluecrawl job.\n//\n// Create each job once, against the site's news index, then paste its id\n// here. Job creation runs the LLM mapper and is charged upfront; the runs\n// this workflow starts replay that cached configuration instead.\nconst SOURCES = [\n  { source: 'TechCrunch AI', job_id: '00000000-0000-0000-0000-000000000000' },\n  { source: 'VentureBeat AI', job_id: '00000000-0000-0000-0000-000000000000' },\n  { source: 'The Verge AI', job_id: '00000000-0000-0000-0000-000000000000' },\n];\n\nreturn SOURCES.map((source) => ({ json: source }));"
+        "jsCode": "// The sites this digest reads. One entry per Gluecrawl job.\n//\n// Create each job once, against the site's news index, then paste its id\n// here. Job creation runs the LLM mapper and is charged upfront; the runs\n// this workflow starts replay that cached configuration instead.\n//\n// Each job needs an article_body column, or the digest has only headlines to\n// work from. The overview note lists the full column set.\nconst SOURCES = [\n  { source: 'TechCrunch AI', job_id: '00000000-0000-0000-0000-000000000000' },\n  { source: 'VentureBeat AI', job_id: '00000000-0000-0000-0000-000000000000' },\n  { source: 'The Verge AI', job_id: '00000000-0000-0000-0000-000000000000' },\n];\n\nreturn SOURCES.map((source) => ({ json: source }));"
       }
     },
     {
