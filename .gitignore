@@ -4,8 +4,15 @@ node_modules/
 .env.*
 !.env.example
 
-# Internal working notes. Kept on disk for local tooling, never published:
-# this repo is public and CLAUDE.md documents cross-repo behaviour that the
-# rest of the platform owns. The publishable half lives in docs/.
+# Agent configuration. Kept on disk for local tooling, never published: this
+# repo is public, and these files describe cross-repo behaviour the rest of the
+# platform owns. The publishable half lives in docs/.
+#
+# CLAUDE.md and AGENTS.md are ignored as well as their local variants, so a
+# committed one can never reappear. Contributor-facing agent setup belongs in
+# docs/authoring.md, which an agent does not auto-load.
 CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
 .claude/
+.mcp.json

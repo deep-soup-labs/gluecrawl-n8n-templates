@@ -105,12 +105,37 @@ check` depends on it, and CI never installs it.
 
 ## Building workflows with an agent
 
-`.mcp.json` wires up [`n8n-mcp`](https://github.com/czlonkowski/n8n-mcp), which ships an offline
-database of every node's schema. `search_nodes`, `get_node` and `validate_workflow` work with no
-instance running; the `n8n_*` tools additionally drive the local editor once `N8N_API_URL` and
-`N8N_API_KEY` are exported.
+[`n8n-mcp`](https://github.com/czlonkowski/n8n-mcp) ships an offline database of every node's
+schema. `search_nodes`, `get_node` and `validate_workflow` work with no instance running; the
+`n8n_*` tools additionally drive the local editor once `N8N_API_URL` and `N8N_API_KEY` are
+exported. Its author also publishes [`n8n-skills`](https://github.com/czlonkowski/n8n-skills),
+a skill pack that teaches an agent the expression syntax and validation habits the raw tools do
+not, and that is worth installing alongside it.
 
-It knows nothing about the Gluecrawl node — that is a community package outside its bundled
+Write the server config yourself, at `.mcp.json` in the repo root:
+
+```json
+{
+  "mcpServers": {
+    "n8n": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "n8n-mcp"],
+      "env": {
+        "MCP_MODE": "stdio",
+        "N8N_API_URL": "${N8N_API_URL}",
+        "N8N_API_KEY": "${N8N_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+That file is gitignored on purpose and the snippet above is the only copy. A checked-in `.mcp.json`
+would make every clone of a public repo offer to launch a server on open, so the choice stays with
+whoever cloned it.
+
+The server knows nothing about the Gluecrawl node — that is a community package outside its bundled
 database. Read the [node repository](https://github.com/deep-soup-labs/gluecrawl-n8n) for the
 operations, parameters and error behaviour, and let the MCP server handle everything the template
 connects Gluecrawl _to_.
