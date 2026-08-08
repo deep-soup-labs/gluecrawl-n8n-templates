@@ -27,9 +27,9 @@
       ],
       "parameters": {
         "width": 640,
-        "height": 1000,
+        "height": 1040,
         "color": 4,
-        "content": "# Weekly AI news digest from multiple sites\n\nReruns one Gluecrawl job per news site every Monday, keeps every article it has ever seen in an n8n data table, and asks an LLM to write a digest of only the stories that are new this week. For anyone who wants one edited summary instead of ten open tabs.\n\n## Setup\n\n1. **Install the node.** Settings → Community nodes → Install → `@gluecrawl/n8n-nodes-gluecrawl`.\n2. **Add credentials.** A Gluecrawl API key on the Gluecrawl nodes, an OpenAI key on *OpenAI Chat Model*.\n3. **Click *Set Up Tables* once.** It creates the two data tables, then one Gluecrawl job per site. **Creating a job spends credits** — it runs the LLM mapper and is charged upfront — so point the three *Create … Job* nodes at the sites you actually want before clicking, and click only once.\n4. **Give the jobs a minute, then pick each one** in *Ars Technica AI*, *VentureBeat AI* and *The Verge AI*. Each field lists the jobs on your account; a job that is still mapping cannot be run yet.\n5. Run the Monday branch by hand once to watch it end to end, then publish.\n\n## Notes\n\n- **Reruns are the cheap path.** Creating a job runs the LLM mapper and is charged upfront. This workflow only ever starts a *run* on a job that already exists, which is billed for the pages it actually fetches — that is why job creation sits in setup and not on the schedule.\n- **Max Pages is 1, and that is deliberate.** These jobs open every article they list, so you are billed per article rather than per listing page. One index page per site per week is already more than a digest can use. Leaving the field empty does not mean \"use a default\": it means paginate until the site runs out.\n- **Gluecrawl allows 10 run starts per minute.** Past ten sources, split them across two schedules.\n- Budget roughly 30 credits per source per week, plus the one-off mapper charge for each job."
+        "content": "# Weekly AI news digest from multiple sites\n\nReruns one Gluecrawl job per news site every Monday, keeps every article it has ever seen in an n8n data table, and asks an LLM to write a digest of only the stories that are new this week. For anyone who wants one edited summary instead of ten open tabs.\n\n## Setup\n\n1. **Install the node.** Settings → Community nodes → Install → `@gluecrawl/n8n-nodes-gluecrawl`.\n2. **Add credentials.** A Gluecrawl API key on the Gluecrawl nodes, an OpenAI key on *OpenAI Chat Model*.\n3. **Click *Set Up* once.** It creates the two data tables, then one Gluecrawl job per site. **Creating a job spends credits** — it runs the LLM mapper and is charged upfront — so point the three *Create … Job* nodes at the sites you actually want before clicking, and click only once.\n4. **Give the jobs a minute, then pick each one** in *Ars Technica AI*, *VentureBeat AI* and *The Verge AI*. Each field lists the jobs on your account; a job that is still mapping cannot be run yet.\n5. Run the Monday branch by hand once to watch it end to end, then publish.\n\n## Notes\n\n- **Reruns are the cheap path.** Creating a job runs the LLM mapper and is charged upfront. This workflow only ever starts a *run* on a job that already exists, which is billed for the pages it actually fetches — that is why job creation sits in setup and not on the schedule.\n- **Max Pages is 1, and that is deliberate.** These jobs open every article they list, so you are billed per article rather than per listing page. One index page per site per week is already more than a digest can use. Leaving the field empty does not mean \"use a default\": it means paginate until the site runs out.\n- **Gluecrawl allows 10 run starts per minute.** Past ten sources, split them across two schedules.\n- Budget roughly 30 credits per source per week, plus the one-off mapper charge for each job."
       }
     },
     {
@@ -39,11 +39,11 @@
       "typeVersion": 1,
       "position": [
         -96,
-        -240
+        -256
       ],
       "parameters": {
-        "width": 1360,
-        "height": 340,
+        "width": 900,
+        "height": 560,
         "color": 3,
         "content": "## 1 · Set up — click once\n\nCreates `ai_news_articles` and `ai_news_digests`, then one Gluecrawl job per site. The tables are reused if they already exist; **the jobs are not** — every click of this branch mints three more and charges for each.\n\nPoint the *Create … Job* nodes at whatever news index you like. The four columns they ask for are the ones the rest of the workflow reads, and `article_body` is the one that matters: it cannot be read off a listing card, so requesting it forces Gluecrawl to open each article and scrape the piece itself."
       }
@@ -55,7 +55,7 @@
       "typeVersion": 1,
       "position": [
         -96,
-        128
+        348
       ],
       "parameters": {
         "width": 1100,
@@ -71,7 +71,7 @@
       "typeVersion": 1,
       "position": [
         1040,
-        128
+        348
       ],
       "parameters": {
         "width": 500,
@@ -87,7 +87,7 @@
       "typeVersion": 1,
       "position": [
         1600,
-        128
+        348
       ],
       "parameters": {
         "width": 760,
@@ -98,12 +98,12 @@
     },
     {
       "id": "3a9e5b21-7c04-4d18-a2f6-9b1c8e0d7f53",
-      "name": "Set Up Tables",
+      "name": "Set Up",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
         -48,
-        -64
+        -32
       ],
       "parameters": {}
     },
@@ -114,7 +114,7 @@
       "typeVersion": 1.1,
       "position": [
         176,
-        -64
+        -32
       ],
       "parameters": {
         "resource": "table",
@@ -160,7 +160,7 @@
       "typeVersion": 1.1,
       "position": [
         400,
-        -64
+        -32
       ],
       "parameters": {
         "resource": "table",
@@ -197,8 +197,8 @@
       "type": "@gluecrawl/n8n-nodes-gluecrawl.gluecrawl",
       "typeVersion": 1,
       "position": [
-        624,
-        -64
+        656,
+        -192
       ],
       "parameters": {
         "resource": "job",
@@ -235,8 +235,8 @@
       "type": "@gluecrawl/n8n-nodes-gluecrawl.gluecrawl",
       "typeVersion": 1,
       "position": [
-        848,
-        -64
+        656,
+        -32
       ],
       "parameters": {
         "resource": "job",
@@ -273,8 +273,8 @@
       "type": "@gluecrawl/n8n-nodes-gluecrawl.gluecrawl",
       "typeVersion": 1,
       "position": [
-        1072,
-        -64
+        656,
+        128
       ],
       "parameters": {
         "resource": "job",
@@ -312,7 +312,7 @@
       "typeVersion": 1.3,
       "position": [
         -48,
-        336
+        556
       ],
       "parameters": {
         "rule": {
@@ -336,7 +336,7 @@
       "typeVersion": 1,
       "position": [
         208,
-        176
+        396
       ],
       "parameters": {
         "resource": "job",
@@ -355,7 +355,7 @@
       "typeVersion": 1,
       "position": [
         208,
-        336
+        556
       ],
       "parameters": {
         "resource": "job",
@@ -374,7 +374,7 @@
       "typeVersion": 1,
       "position": [
         208,
-        496
+        716
       ],
       "parameters": {
         "resource": "job",
@@ -393,7 +393,7 @@
       "typeVersion": 3.2,
       "position": [
         432,
-        336
+        556
       ],
       "parameters": {
         "numberInputs": 3
@@ -406,7 +406,7 @@
       "typeVersion": 1,
       "position": [
         656,
-        336
+        556
       ],
       "onError": "continueRegularOutput",
       "retryOnFail": true,
@@ -435,7 +435,7 @@
       "typeVersion": 2.2,
       "position": [
         880,
-        336
+        556
       ],
       "parameters": {
         "conditions": {
@@ -470,7 +470,7 @@
       "typeVersion": 1.1,
       "position": [
         1104,
-        336
+        556
       ],
       "parameters": {
         "resource": "row",
@@ -499,7 +499,7 @@
       "typeVersion": 1.1,
       "position": [
         1328,
-        336
+        556
       ],
       "parameters": {
         "resource": "row",
@@ -595,7 +595,7 @@
       "typeVersion": 2,
       "position": [
         1664,
-        336
+        556
       ],
       "parameters": {
         "jsCode": "// Collapse the week into a single item. The model has to see every story at\n// once to group them; one prompt per article would only ever produce a list.\nconst EXCERPT = 1200;\n\nconst articles = $input.all().map((item) => item.json);\n\nconst bySource = {};\nfor (const article of articles) {\n  (bySource[article.source] ??= []).push(article);\n}\n\nconst brief = Object.entries(bySource)\n  .map(([source, rows]) => {\n    const entries = rows.map((row) => {\n      const parts = [`### ${row.title}`, row.url];\n      if (row.published_at) parts.push(`Published: ${row.published_at}`);\n      if (row.body) parts.push(row.body.slice(0, EXCERPT));\n      return parts.join('\\n');\n    });\n    return `## ${source}\\n\\n${entries.join('\\n\\n')}`;\n  })\n  .join('\\n\\n');\n\nreturn [\n  {\n    json: {\n      week_of: new Date().toISOString().slice(0, 10),\n      article_count: articles.length,\n      sources: Object.keys(bySource).join(', '),\n      brief,\n    },\n  },\n];"
@@ -608,7 +608,7 @@
       "typeVersion": 1.3,
       "position": [
         1888,
-        512
+        732
       ],
       "parameters": {
         "model": {
@@ -627,7 +627,7 @@
       "typeVersion": 1.9,
       "position": [
         1888,
-        336
+        556
       ],
       "parameters": {
         "promptType": "define",
@@ -642,7 +642,7 @@
       "typeVersion": 1.1,
       "position": [
         2176,
-        336
+        556
       ],
       "parameters": {
         "resource": "row",
@@ -711,7 +711,7 @@
     }
   ],
   "connections": {
-    "Set Up Tables": {
+    "Set Up": {
       "main": [
         [
           {
@@ -740,24 +740,12 @@
             "node": "Create the Ars Technica Job",
             "type": "main",
             "index": 0
-          }
-        ]
-      ]
-    },
-    "Create the Ars Technica Job": {
-      "main": [
-        [
+          },
           {
             "node": "Create the VentureBeat Job",
             "type": "main",
             "index": 0
-          }
-        ]
-      ]
-    },
-    "Create the VentureBeat Job": {
-      "main": [
-        [
+          },
           {
             "node": "Create the Verge Job",
             "type": "main",
