@@ -690,7 +690,7 @@
         "content": "## What you can do now\n\nThe digest lands as a row in `ai_news_digests`. Everything below hangs off *Write the Digest*, where `{{ $json.text }}` is the finished article.\n\n- **Send it.** A Gmail, Slack, Discord or Telegram node is the whole change.\n- **Publish it.** Ghost, WordPress and Webflow take the Markdown as a post; Mailchimp and Beehiiv take it as a campaign.\n- **Break it into posts.** Add a second LLM chain over the same brief asking for five short posts, then fan out to X, LinkedIn or Bluesky.\n- **Change the beat.** Nothing here is AI-specific. Point the jobs at competitor blogs, release notes, regulatory filings, funding rounds or job boards and the rest of the workflow is unchanged.\n- **Change the cadence.** Move the schedule to daily and lower `PER_SOURCE` so each edition stays short.\n- **Reuse the archive.** `ai_news_articles` accumulates the full text of every article. Point a vector store at it and ask questions across months of coverage.",
         "height": 600,
         "width": 464,
-        "color": "#E1FF00"
+        "color": 4
       },
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
