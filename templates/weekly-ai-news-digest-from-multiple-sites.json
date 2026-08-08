@@ -58,10 +58,10 @@
         348
       ],
       "parameters": {
-        "width": 1100,
+        "width": 860,
         "height": 600,
         "color": 5,
-        "content": "## 2 · Read the week\n\nOne node per site, each holding a job created in setup. A run replays the mapper configuration Gluecrawl worked out back then, so no LLM runs at scrape time and every site comes back with the same four columns.\n\n*Skip Failed Sources* is what keeps one broken site from taking the digest down with it: a source whose run fails arrives as an error item and stops there.\n\nTo follow a fourth site, add a *Create … Job* node to setup, copy one of these three, wire it into *Merge Sources* and raise that node's Number of Inputs."
+        "content": "## 2 · Read the week\n\nOne node per site, each holding a job created in setup. A run replays the mapper configuration Gluecrawl worked out back then, so no LLM runs at scrape time and every site comes back with the same four columns.\n\nA failed source does not sink the digest. *Scrape Each Source* retries three times, then continues past the broken site, and the brief is built only from rows that carry an article URL — so the week still gets written from whatever did come back.\n\nTo follow a fourth site, add a *Create … Job* node to setup, copy one of these three, wire it into *Merge Sources* and raise that node's Number of Inputs."
       }
     },
     {
@@ -70,7 +70,7 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        1040,
+        816,
         348
       ],
       "parameters": {
@@ -86,7 +86,7 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        1600,
+        1376,
         348
       ],
       "parameters": {
@@ -429,47 +429,12 @@
       }
     },
     {
-      "id": "3c7a1e60-5b94-4d28-9f03-8c6e2a4b7d15",
-      "name": "Skip Failed Sources",
-      "type": "n8n-nodes-base.filter",
-      "typeVersion": 2.2,
-      "position": [
-        880,
-        556
-      ],
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose",
-            "version": 2
-          },
-          "conditions": [
-            {
-              "id": "7b0d3f92-4a15-4e86-b7c2-0d9a5e1f3b64",
-              "leftValue": "={{ $json.article_url }}",
-              "rightValue": "",
-              "operator": {
-                "type": "string",
-                "operation": "notEmpty",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "looseTypeValidation": true,
-        "options": {}
-      }
-    },
-    {
       "id": "4b8f6d20-1a93-4e57-9c04-8d2b7e5a3f61",
       "name": "Only New Articles",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        1104,
+        880,
         556
       ],
       "parameters": {
@@ -498,7 +463,7 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        1328,
+        1104,
         556
       ],
       "parameters": {
@@ -594,11 +559,11 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1664,
+        1440,
         556
       ],
       "parameters": {
-        "jsCode": "// Collapse the week into a single item. The model has to see every story at\n// once to group them; one prompt per article would only ever produce a list.\nconst EXCERPT = 1200;\n\nconst articles = $input.all().map((item) => item.json);\n\nconst bySource = {};\nfor (const article of articles) {\n  (bySource[article.source] ??= []).push(article);\n}\n\nconst brief = Object.entries(bySource)\n  .map(([source, rows]) => {\n    const entries = rows.map((row) => {\n      const parts = [`### ${row.title}`, row.url];\n      if (row.published_at) parts.push(`Published: ${row.published_at}`);\n      if (row.body) parts.push(row.body.slice(0, EXCERPT));\n      return parts.join('\\n');\n    });\n    return `## ${source}\\n\\n${entries.join('\\n\\n')}`;\n  })\n  .join('\\n\\n');\n\nreturn [\n  {\n    json: {\n      week_of: new Date().toISOString().slice(0, 10),\n      article_count: articles.length,\n      sources: Object.keys(bySource).join(', '),\n      brief,\n    },\n  },\n];"
+        "jsCode": "// Collapse the week into a single item. The model has to see every story at\n// once to group them; one prompt per article would only ever produce a list.\nconst EXCERPT = 1200;\n\n// A source whose run failed, and a run that finished with no rows, both reach\n// the archive carrying no URL. Neither is a story.\nconst articles = $input\n  .all()\n  .map((item) => item.json)\n  .filter((row) => row.url);\n\nconst bySource = {};\nfor (const article of articles) {\n  (bySource[article.source] ??= []).push(article);\n}\n\nconst brief = Object.entries(bySource)\n  .map(([source, rows]) => {\n    const entries = rows.map((row) => {\n      const parts = [`### ${row.title}`, row.url];\n      if (row.published_at) parts.push(`Published: ${row.published_at}`);\n      if (row.body) parts.push(row.body.slice(0, EXCERPT));\n      return parts.join('\\n');\n    });\n    return `## ${source}\\n\\n${entries.join('\\n\\n')}`;\n  })\n  .join('\\n\\n');\n\nreturn [\n  {\n    json: {\n      week_of: new Date().toISOString().slice(0, 10),\n      article_count: articles.length,\n      sources: Object.keys(bySource).join(', '),\n      brief,\n    },\n  },\n];"
       }
     },
     {
@@ -607,7 +572,7 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
       "position": [
-        1888,
+        1664,
         732
       ],
       "parameters": {
@@ -626,7 +591,7 @@
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.9,
       "position": [
-        1888,
+        1664,
         556
       ],
       "parameters": {
@@ -641,7 +606,7 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        2176,
+        1952,
         556
       ],
       "parameters": {
@@ -820,17 +785,6 @@
       ]
     },
     "Scrape Each Source": {
-      "main": [
-        [
-          {
-            "node": "Skip Failed Sources",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Skip Failed Sources": {
       "main": [
         [
           {
