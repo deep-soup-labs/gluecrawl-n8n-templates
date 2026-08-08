@@ -27,9 +27,9 @@
       ],
       "parameters": {
         "width": 640,
-        "height": 1604,
+        "height": 1000,
         "color": 4,
-        "content": "# Weekly AI news digest from multiple sites\n\nRuns a Gluecrawl job per news site every Monday, keeps every headline it has ever seen in an n8n data table, and asks an LLM to write a digest of only the stories that are new this week. For anyone who wants one edited summary instead of ten open tabs.\n\n## Setup\n\n1. **Install the node.** Settings → Community nodes → Install → `@gluecrawl/n8n-nodes-gluecrawl`.\n2. **Add your Gluecrawl credential** to the *Scrape Each Source* node, and an OpenAI credential to *OpenAI Chat Model*. API keys are on every paid Gluecrawl plan.\n3. **Create one Gluecrawl job per site, once — in Columns mode.** Point each at a site's news index (`https://…/ai/`) and ask for exactly these columns:\n\n   | Column | Type |\n   | --- | --- |\n   | `title` | text |\n   | `article_url` | url |\n   | `published_at` | date |\n   | `article_body` | text |\n\n   **`article_body` is what makes this work.** It cannot be read off a listing card, so requesting it forces Gluecrawl to open each article and scrape the piece itself. Without it you get headlines, and the digest can only rephrase them.\n\n   Use Columns rather than Goal here. A goal is a request the mapper may decline — where a described field is not on the listing it is allowed to drop it silently. A named column cannot be dropped; a mapping that cannot satisfy it fails outright and tells you so.\n\n   Creating a job runs the LLM mapper and is charged once; this workflow never creates jobs. Let each job's first run finish before you list it here — a rerun replays the handler that first run caches, and a job without one is refused.\n4. **Run the *Set Up Tables* branch once** (click its manual trigger). It creates the two data tables this workflow writes to and is safe to run again — existing tables are reused.\n5. **Paste your job ids into *News Sources*.** One line per site. That node is the only thing you have to edit.\n6. Run the schedule branch by hand once to check it end to end, then publish.\n\n## Notes\n\n- **Reruns are the cheap path.** `Job: Create` mints a job and runs the LLM mapper, charged upfront, with no dedupe by URL — creating one per execution would burn credits weekly for nothing. This workflow only ever starts a *run* on a job that already exists, which is billed for the pages it actually fetches.\n- **Max Pages is 1, and that is deliberate.** Once a job scrapes article bodies you are billed per article opened, not per listing page, so one index page of twenty stories costs around twenty times what the headlines alone would. One page per site per week is already more than a digest can use. Raising this multiplies the bill; leaving it empty is worse still, because an empty value does not mean \"use a default\" — it means paginate until the site runs out, and the plan cap only applies when the field is present.\n- **Gluecrawl allows 10 run starts per minute.** Past ten sources, add a Wait node inside the loop.\n- **A failed source does not sink the digest.** *Scrape Each Source* continues on error, and *Normalize Articles* drops the error items. A source that fails every week is usually a job whose site changed layout — mapper configuration is frozen at mapping time and is never re-derived, so fix it by creating a new job.\n- **Nothing happens when there is no news.** *Only New Articles* emits no items, so the LLM is never called and no digest row is written.\n- Column names differ per site because each job's mapper names its own. *Normalize Articles* maps the common spellings onto one shape; add yours to the alias lists if a site uses something unusual."
+        "content": "# Weekly AI news digest from multiple sites\n\nReruns one Gluecrawl job per news site every Monday, keeps every article it has ever seen in an n8n data table, and asks an LLM to write a digest of only the stories that are new this week. For anyone who wants one edited summary instead of ten open tabs.\n\n## Setup\n\n1. **Install the node.** Settings → Community nodes → Install → `@gluecrawl/n8n-nodes-gluecrawl`.\n2. **Add credentials.** A Gluecrawl API key on the Gluecrawl nodes, an OpenAI key on *OpenAI Chat Model*.\n3. **Click *Set Up Tables* once.** It creates the two data tables, then one Gluecrawl job per site. **Creating a job spends credits** — it runs the LLM mapper and is charged upfront — so point the three *Create … Job* nodes at the sites you actually want before clicking, and click only once.\n4. **Give the jobs a minute, then pick each one** in *Ars Technica AI*, *VentureBeat AI* and *The Verge AI*. Each field lists the jobs on your account; a job that is still mapping cannot be run yet.\n5. Run the Monday branch by hand once to watch it end to end, then publish.\n\n## Notes\n\n- **Reruns are the cheap path.** Creating a job runs the LLM mapper and is charged upfront. This workflow only ever starts a *run* on a job that already exists, which is billed for the pages it actually fetches — that is why job creation sits in setup and not on the schedule.\n- **Max Pages is 1, and that is deliberate.** These jobs open every article they list, so you are billed per article rather than per listing page. One index page per site per week is already more than a digest can use. Leaving the field empty does not mean \"use a default\": it means paginate until the site runs out.\n- **Gluecrawl allows 10 run starts per minute.** Past ten sources, split them across two schedules.\n- Budget roughly 30 credits per source per week, plus the one-off mapper charge for each job."
       }
     },
     {
@@ -42,10 +42,10 @@
         -240
       ],
       "parameters": {
-        "width": 700,
+        "width": 1360,
         "height": 340,
         "color": 3,
-        "content": "## 1 · Set up — click this once\n\nCreates `ai_news_articles` and `ai_news_digests`. Re-running reuses whatever already exists, so this is safe to click again after an import.\n\nThe rest of the workflow finds both tables **by name**, so there are no table ids to fill in."
+        "content": "## 1 · Set up — click once\n\nCreates `ai_news_articles` and `ai_news_digests`, then one Gluecrawl job per site. The tables are reused if they already exist; **the jobs are not** — every click of this branch mints three more and charges for each.\n\nPoint the *Create … Job* nodes at whatever news index you like. The four columns they ask for are the ones the rest of the workflow reads, and `article_body` is the one that matters: it cannot be read off a listing card, so requesting it forces Gluecrawl to open each article and scrape the piece itself."
       }
     },
     {
@@ -58,10 +58,10 @@
         128
       ],
       "parameters": {
-        "width": 1000,
-        "height": 368,
+        "width": 1100,
+        "height": 600,
         "color": 5,
-        "content": "## 2 · Scrape every source\n\n*News Sources* emits one item per site, and *Scrape Each Source* runs once per item — so the fan-out is just the list below. **Edit that list; nothing else here needs touching.**\n\nEach run replays the mapper configuration Gluecrawl worked out when the job was created, so no LLM runs at scrape time and the columns come back the same every week. *Normalize Articles* then folds each site's column names onto one shape."
+        "content": "## 2 · Read the week\n\nOne node per site, each holding a job created in setup. A run replays the mapper configuration Gluecrawl worked out back then, so no LLM runs at scrape time and every site comes back with the same four columns.\n\n*Skip Failed Sources* is what keeps one broken site from taking the digest down with it: a source whose run fails arrives as an error item and stops there.\n\nTo follow a fourth site, add a *Create … Job* node to setup, copy one of these three, wire it into *Merge Sources* and raise that node's Number of Inputs."
       }
     },
     {
@@ -70,14 +70,14 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        1024,
-        64
+        1040,
+        128
       ],
       "parameters": {
-        "width": 520,
-        "height": 432,
+        "width": 500,
+        "height": 400,
         "color": 6,
-        "content": "## 3 · Keep only what is new\n\nThe archive is the dedupe key: *Only New Articles* passes through the URLs the table has never seen, so a story that sat on the front page for three weeks is written up once.\n\nIt also means the first execution treats everything on the page as new — expect one fat digest, then weekly deltas."
+        "content": "## 3 · Keep only what is new\n\nThe archive is the dedupe key: *Only New Articles* passes through the URLs the table has never seen, so a story that sits on the front page for three weeks is written up once. The first execution treats the whole page as new — expect one fat digest, then weekly deltas.\n\nA week with nothing new emits no items, so the LLM is never called and no digest row is written."
       }
     },
     {
@@ -86,14 +86,14 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        1616,
-        -32
+        1600,
+        128
       ],
       "parameters": {
-        "width": 700,
-        "height": 720,
+        "width": 760,
+        "height": 600,
         "color": 7,
-        "content": "## 4 · Write it up\n\nThe whole week reaches the model in one prompt, which is what lets it group related stories rather than summarise them one at a time. Each story carries an excerpt of its body, so the digest can report what happened rather than reword the headline.\n\n**If `with_body` comes back as 0**, your jobs are only reading listing pages. Recreate them in Columns mode with an `article_body` column — detail extraction cannot be switched on for a job that already exists.\n\nThe digest is stored as a row. To have it delivered instead, put a Gmail, Slack or Ghost node after *Write the Digest* — `{{ $json.text }}` is the article."
+        "content": "## 4 · Write it up\n\nThe whole week reaches the model in one prompt, which is what lets it group related stories rather than summarise them one at a time. Each story carries an excerpt of its body, so the digest can report what happened rather than reword the headline.\n\nThe digest is stored as a row. To have it delivered instead, put a Gmail, Slack or Ghost node after *Write the Digest* — `{{ $json.text }}` is the article."
       }
     },
     {
@@ -113,7 +113,7 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        208,
+        176,
         -64
       ],
       "parameters": {
@@ -132,10 +132,6 @@
             },
             {
               "name": "source",
-              "type": "string"
-            },
-            {
-              "name": "summary",
               "type": "string"
             },
             {
@@ -163,7 +159,7 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        432,
+        400,
         -64
       ],
       "parameters": {
@@ -196,13 +192,127 @@
       }
     },
     {
+      "id": "b21f7c48-0e93-4d56-a1c7-5f2b8d0a3e61",
+      "name": "Create the Ars Technica Job",
+      "type": "@gluecrawl/n8n-nodes-gluecrawl.gluecrawl",
+      "typeVersion": 1,
+      "position": [
+        624,
+        -64
+      ],
+      "parameters": {
+        "resource": "job",
+        "operation": "create",
+        "url": "https://arstechnica.com/ai/",
+        "inputMode": "columns",
+        "columns": {
+          "column": [
+            {
+              "name": "title",
+              "type": "text"
+            },
+            {
+              "name": "article_url",
+              "type": "url"
+            },
+            {
+              "name": "published_at",
+              "type": "text"
+            },
+            {
+              "name": "article_body",
+              "type": "text"
+            }
+          ]
+        },
+        "maxPages": 1,
+        "waitForCompletion": false
+      }
+    },
+    {
+      "id": "e4a9d013-6b27-4f85-90c3-2d7e1b5a8c60",
+      "name": "Create the VentureBeat Job",
+      "type": "@gluecrawl/n8n-nodes-gluecrawl.gluecrawl",
+      "typeVersion": 1,
+      "position": [
+        848,
+        -64
+      ],
+      "parameters": {
+        "resource": "job",
+        "operation": "create",
+        "url": "https://venturebeat.com/category/ai/",
+        "inputMode": "columns",
+        "columns": {
+          "column": [
+            {
+              "name": "title",
+              "type": "text"
+            },
+            {
+              "name": "article_url",
+              "type": "url"
+            },
+            {
+              "name": "published_at",
+              "type": "text"
+            },
+            {
+              "name": "article_body",
+              "type": "text"
+            }
+          ]
+        },
+        "maxPages": 1,
+        "waitForCompletion": false
+      }
+    },
+    {
+      "id": "c7b3e592-1d68-4a04-8f7b-93a5c2e6d018",
+      "name": "Create the Verge Job",
+      "type": "@gluecrawl/n8n-nodes-gluecrawl.gluecrawl",
+      "typeVersion": 1,
+      "position": [
+        1072,
+        -64
+      ],
+      "parameters": {
+        "resource": "job",
+        "operation": "create",
+        "url": "https://www.theverge.com/ai-artificial-intelligence",
+        "inputMode": "columns",
+        "columns": {
+          "column": [
+            {
+              "name": "title",
+              "type": "text"
+            },
+            {
+              "name": "article_url",
+              "type": "url"
+            },
+            {
+              "name": "published_at",
+              "type": "text"
+            },
+            {
+              "name": "article_body",
+              "type": "text"
+            }
+          ]
+        },
+        "maxPages": 1,
+        "waitForCompletion": false
+      }
+    },
+    {
       "id": "1e7a3f52-4b89-4c07-8d61-0a2f9c5e8b37",
       "name": "Every Monday Morning",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.3,
       "position": [
         -48,
-        320
+        336
       ],
       "parameters": {
         "rule": {
@@ -221,15 +331,72 @@
     },
     {
       "id": "5c2b8d49-6e13-4f70-a985-3d0c7b1e4a62",
-      "name": "News Sources",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "name": "Ars Technica AI",
+      "type": "@gluecrawl/n8n-nodes-gluecrawl.gluecrawl",
+      "typeVersion": 1,
       "position": [
         208,
-        320
+        176
       ],
       "parameters": {
-        "jsCode": "// The sites this digest reads. One entry per Gluecrawl job.\n//\n// Create each job once, against the site's news index, then paste its id\n// here. Job creation runs the LLM mapper and is charged upfront; the runs\n// this workflow starts replay that cached configuration instead.\n//\n// Each job needs an article_body column, or the digest has only headlines to\n// work from. The overview note lists the full column set.\nconst SOURCES = [\n  { source: 'Ars Technica AI', job_id: '00000000-0000-0000-0000-000000000000' },\n  { source: 'VentureBeat AI', job_id: '00000000-0000-0000-0000-000000000000' },\n  { source: 'The Verge AI', job_id: '00000000-0000-0000-0000-000000000000' },\n];\n\nreturn SOURCES.map((source) => ({ json: source }));"
+        "resource": "job",
+        "operation": "get",
+        "jobId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        }
+      }
+    },
+    {
+      "id": "f6d18b23-9a40-4e75-b3c9-7e0a2d5f1b84",
+      "name": "VentureBeat AI",
+      "type": "@gluecrawl/n8n-nodes-gluecrawl.gluecrawl",
+      "typeVersion": 1,
+      "position": [
+        208,
+        336
+      ],
+      "parameters": {
+        "resource": "job",
+        "operation": "get",
+        "jobId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        }
+      }
+    },
+    {
+      "id": "0d5c9a71-3e82-4b16-8a47-6f1b3d8e2c95",
+      "name": "The Verge AI",
+      "type": "@gluecrawl/n8n-nodes-gluecrawl.gluecrawl",
+      "typeVersion": 1,
+      "position": [
+        208,
+        496
+      ],
+      "parameters": {
+        "resource": "job",
+        "operation": "get",
+        "jobId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        }
+      }
+    },
+    {
+      "id": "8a2e6f14-7d09-4c53-b96f-1a4d7c0e3b52",
+      "name": "Merge Sources",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        432,
+        336
+      ],
+      "parameters": {
+        "numberInputs": 3
       }
     },
     {
@@ -238,8 +405,8 @@
       "type": "@gluecrawl/n8n-nodes-gluecrawl.gluecrawl",
       "typeVersion": 1,
       "position": [
-        432,
-        320
+        656,
+        336
       ],
       "onError": "continueRegularOutput",
       "retryOnFail": true,
@@ -251,7 +418,7 @@
         "jobId": {
           "__rl": true,
           "mode": "id",
-          "value": "={{ $json.job_id }}"
+          "value": "={{ $json.id }}"
         },
         "waitForCompletion": true,
         "outputItems": true,
@@ -262,16 +429,38 @@
       }
     },
     {
-      "id": "0a6e2c93-8f41-4d75-b028-6c9d3a5b1e74",
-      "name": "Normalize Articles",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "id": "3c7a1e60-5b94-4d28-9f03-8c6e2a4b7d15",
+      "name": "Skip Failed Sources",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
       "position": [
-        704,
-        320
+        880,
+        336
       ],
       "parameters": {
-        "jsCode": "// Every job's mapper names its own columns, so the same field arrives as\n// `link` from one site and `url` from the next. Fold the common spellings\n// onto one shape and drop anything without a usable link.\nconst ALIASES = {\n  url: ['url', 'link', 'href', 'articleurl', 'permalink'],\n  title: ['title', 'headline', 'name', 'heading'],\n  summary: ['summary', 'description', 'excerpt', 'snippet', 'standfirst', 'subtitle', 'teaser'],\n  body: ['body', 'content', 'articlebody', 'articletext', 'fulltext', 'text', 'story', 'maincontent'],\n  published_at: ['publishedat', 'published', 'date', 'datetime', 'time', 'timestamp', 'posted'],\n};\n\n// What gets kept per article. The archive is append-only and never pruned,\n// so an untrimmed body would grow it without bound for no extra editorial\n// value — the digest only ever quotes the opening of a piece.\nconst BODY_LIMIT = 4000;\n\nconst key = (name) => name.toLowerCase().replace(/[^a-z0-9]/g, '');\n\nfunction pick(row, names) {\n  const flat = {};\n  for (const [k, v] of Object.entries(row)) flat[key(k)] = v;\n  for (const name of names) {\n    const value = flat[name];\n    // A column can come back as an array — a body collected from separate\n    // paragraph nodes arrives that way, and Gluecrawl types such a column\n    // `array`. Flatten before testing, or the field reads as missing.\n    const text = Array.isArray(value) ? value.filter(Boolean).join('\\n\\n') : value;\n    if (typeof text === 'string' && text.trim()) return text.trim();\n    if (typeof text === 'number') return String(text);\n  }\n  return '';\n}\n\nconst scrapedAt = new Date().toISOString();\nconst seen = new Set();\nconst articles = [];\n\nfor (const [index, item] of $input.all().entries()) {\n  const row = item.json ?? {};\n\n  // A source whose run failed arrives as an error item, because the scrape\n  // node is set to continue. Skipping it keeps one broken site from taking\n  // the whole digest down with it.\n  if (row.error) continue;\n\n  const url = pick(row, ALIASES.url);\n  if (!/^https?:\\/\\//i.test(url) || seen.has(url)) continue;\n  seen.add(url);\n\n  // Prefer the label the user wrote next to the job id; fall back to the\n  // hostname when item lineage is unavailable.\n  let source = '';\n  try {\n    source = $('News Sources').itemMatching(index).json.source ?? '';\n  } catch (error) {\n    source = '';\n  }\n  if (!source) {\n    try {\n      source = new URL(url).hostname.replace(/^www\\./, '');\n    } catch (error) {\n      source = 'unknown';\n    }\n  }\n\n  articles.push({\n    json: {\n      url,\n      title: pick(row, ALIASES.title) || url,\n      summary: pick(row, ALIASES.summary),\n      body: pick(row, ALIASES.body).slice(0, BODY_LIMIT),\n      published_at: pick(row, ALIASES.published_at),\n      source,\n      scraped_at: scrapedAt,\n    },\n    pairedItem: { item: index },\n  });\n}\n\nreturn articles;"
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7b0d3f92-4a15-4e86-b7c2-0d9a5e1f3b64",
+              "leftValue": "={{ $json.article_url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
       }
     },
     {
@@ -280,8 +469,8 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        1120,
-        320
+        1104,
+        336
       ],
       "parameters": {
         "resource": "row",
@@ -297,7 +486,7 @@
             {
               "keyName": "url",
               "condition": "eq",
-              "keyValue": "={{ $json.url }}"
+              "keyValue": "={{ $json.article_url }}"
             }
           ]
         }
@@ -309,8 +498,8 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        1344,
-        320
+        1328,
+        336
       ],
       "parameters": {
         "resource": "row",
@@ -323,13 +512,12 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "url": "={{ $json.url }}",
-            "title": "={{ $json.title }}",
-            "source": "={{ $json.source }}",
-            "summary": "={{ $json.summary }}",
-            "body": "={{ $json.body }}",
-            "published_at": "={{ $json.published_at }}",
-            "scraped_at": "={{ $json.scraped_at }}"
+            "url": "={{ $json.article_url }}",
+            "title": "={{ $json.title || $json.article_url }}",
+            "source": "={{ ($json.article_url.split('/')[2] || 'unknown').replace('www.', '') }}",
+            "body": "={{ [$json.article_body || ''].flat().filter(Boolean).join('\\n\\n').slice(0, 4000) }}",
+            "published_at": "={{ $json.published_at || '' }}",
+            "scraped_at": "={{ $now.toISO() }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -356,16 +544,6 @@
             {
               "id": "source",
               "displayName": "source",
-              "type": "string",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "summary",
-              "displayName": "summary",
               "type": "string",
               "required": false,
               "defaultMatch": false,
@@ -417,10 +595,10 @@
       "typeVersion": 2,
       "position": [
         1664,
-        320
+        336
       ],
       "parameters": {
-        "jsCode": "// Collapse the week into a single item. The model has to see every story at\n// once to group them; one prompt per article would only ever produce a list.\n//\n// Each story contributes an excerpt rather than its whole body. The digest\n// needs enough to tell what happened and who it affects; a week of full\n// articles would cost more to summarise than it cost to scrape.\nconst EXCERPT = 1200;\n\nconst articles = $input.all().map((item) => item.json);\n\nconst bySource = {};\nfor (const article of articles) {\n  (bySource[article.source] ??= []).push(article);\n}\n\nconst brief = Object.entries(bySource)\n  .map(([source, rows]) => {\n    const entries = rows.map((row) => {\n      const parts = [`### ${row.title}`, row.url];\n      if (row.published_at) parts.push(`Published: ${row.published_at}`);\n      // The body is the point; the listing summary is only a fallback for\n      // sources whose jobs never had detail extraction enabled.\n      const text = row.body || row.summary;\n      if (text) parts.push(text.slice(0, EXCERPT));\n      return parts.join('\\n');\n    });\n    return `## ${source}\\n\\n${entries.join('\\n\\n')}`;\n  })\n  .join('\\n\\n');\n\nreturn [\n  {\n    json: {\n      week_of: new Date().toISOString().slice(0, 10),\n      article_count: articles.length,\n      // Reads zero when the jobs are only mapping listing pages, which is the\n      // quickest way to tell a thin digest from a broken one.\n      with_body: articles.filter((row) => row.body).length,\n      sources: Object.keys(bySource).join(', '),\n      brief,\n    },\n  },\n];"
+        "jsCode": "// Collapse the week into a single item. The model has to see every story at\n// once to group them; one prompt per article would only ever produce a list.\nconst EXCERPT = 1200;\n\nconst articles = $input.all().map((item) => item.json);\n\nconst bySource = {};\nfor (const article of articles) {\n  (bySource[article.source] ??= []).push(article);\n}\n\nconst brief = Object.entries(bySource)\n  .map(([source, rows]) => {\n    const entries = rows.map((row) => {\n      const parts = [`### ${row.title}`, row.url];\n      if (row.published_at) parts.push(`Published: ${row.published_at}`);\n      if (row.body) parts.push(row.body.slice(0, EXCERPT));\n      return parts.join('\\n');\n    });\n    return `## ${source}\\n\\n${entries.join('\\n\\n')}`;\n  })\n  .join('\\n\\n');\n\nreturn [\n  {\n    json: {\n      week_of: new Date().toISOString().slice(0, 10),\n      article_count: articles.length,\n      sources: Object.keys(bySource).join(', '),\n      brief,\n    },\n  },\n];"
       }
     },
     {
@@ -430,7 +608,7 @@
       "typeVersion": 1.3,
       "position": [
         1888,
-        496
+        512
       ],
       "parameters": {
         "model": {
@@ -449,7 +627,7 @@
       "typeVersion": 1.9,
       "position": [
         1888,
-        320
+        336
       ],
       "parameters": {
         "promptType": "define",
@@ -464,7 +642,7 @@
       "typeVersion": 1.1,
       "position": [
         2176,
-        320
+        336
       ],
       "parameters": {
         "resource": "row",
@@ -555,18 +733,94 @@
         ]
       ]
     },
-    "Every Monday Morning": {
+    "Create Digests Table": {
       "main": [
         [
           {
-            "node": "News Sources",
+            "node": "Create the Ars Technica Job",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "News Sources": {
+    "Create the Ars Technica Job": {
+      "main": [
+        [
+          {
+            "node": "Create the VentureBeat Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create the VentureBeat Job": {
+      "main": [
+        [
+          {
+            "node": "Create the Verge Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every Monday Morning": {
+      "main": [
+        [
+          {
+            "node": "Ars Technica AI",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "VentureBeat AI",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "The Verge AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ars Technica AI": {
+      "main": [
+        [
+          {
+            "node": "Merge Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "VentureBeat AI": {
+      "main": [
+        [
+          {
+            "node": "Merge Sources",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "The Verge AI": {
+      "main": [
+        [
+          {
+            "node": "Merge Sources",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge Sources": {
       "main": [
         [
           {
@@ -581,14 +835,14 @@
       "main": [
         [
           {
-            "node": "Normalize Articles",
+            "node": "Skip Failed Sources",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Normalize Articles": {
+    "Skip Failed Sources": {
       "main": [
         [
           {
