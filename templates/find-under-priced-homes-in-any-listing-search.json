@@ -1,0 +1,722 @@
+{
+  "name": "Find under-priced homes in any listing search",
+  "nodes": [
+    {
+      "id": "uh-01-node-0000-0000-000000000000",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -620,
+        -120
+      ],
+      "parameters": {
+        "content": "# Find under-priced homes in any listing search\n\nPaste a search from any property site and get back the homes asking less than comparable listings in their own ZIP code suggest they should — with the size of the comparison stated, and what to check before you call.\n\n## Setup\n\n1. **Install the node.** Settings → Community nodes → Install → `@gluecrawl/n8n-nodes-gluecrawl`.\n2. **Add credentials.** A Gluecrawl API key on *Search Each Portal*, an OpenAI key on *OpenAI Chat Model*.\n3. **Click *Set Up* once** to create the table the shortlists are logged to.\n4. **Publish the workflow**, then open the form URL on the *Buyer Brief* node and paste a search.\n\n## Notes\n\n- **Search on the portal first, then paste the URL.** Filter by price, bedrooms, property type or a drawn region there — the portal is far better at it than anything this workflow could rebuild, and a narrowed search means fewer pages for the same answer.\n- **Every search mints a Gluecrawl job and is charged upfront.** Each pasted URL is a genuinely different search, so there is no cached job to rerun; the cost is per submission. Keep the form behind an address you control rather than a public link, and note that the form caps at five searches at a time.\n- **Not every site paginates.** One portal tested here returns its first page and stops however many are asked for, so a search that should yield hundreds yields twenty-four with no error. If the count comes back far below what the site claims, that is why — paste a narrower search rather than a deeper one.\n- **Pages are not priced alike.** The more heavily a site defends itself, the more each page costs, and the yield differs just as much: one portal tested gave ten homes a page from behind the heaviest protection, another forty-one from behind less. Prefer the sites that give you more listings per page.\n- **The form answers immediately; the search does not.** Mapping a listing site took between four and ten minutes in testing, so the report lands minutes after the form says thank you. Wire *Assemble the Report* to Gmail or Slack, or read it from the `home_shortlists` table.\n- **A gap is a question, not a discount.** Condition, a busy road, a land lease, an HOA: none of it appears on a listing card, and any of it can explain the whole difference. The report is written to send you asking, not buying.",
+        "height": 1120,
+        "width": 500,
+        "color": 4
+      }
+    },
+    {
+      "id": "uh-02-node-0000-0000-000000000000",
+      "name": "Set Up",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -60
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "uh-03-node-0000-0000-000000000000",
+      "name": "Create Shortlist Table",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        180,
+        -60
+      ],
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "home_shortlists",
+        "columns": {
+          "column": [
+            {
+              "name": "searched_at"
+            },
+            {
+              "name": "search"
+            },
+            {
+              "name": "address"
+            },
+            {
+              "name": "zip_code"
+            },
+            {
+              "name": "listing_url"
+            },
+            {
+              "name": "source"
+            },
+            {
+              "name": "price",
+              "type": "number"
+            },
+            {
+              "name": "sqft",
+              "type": "number"
+            },
+            {
+              "name": "beds",
+              "type": "number"
+            },
+            {
+              "name": "price_per_sqft",
+              "type": "number"
+            },
+            {
+              "name": "expected_price",
+              "type": "number"
+            },
+            {
+              "name": "discount_pct",
+              "type": "number"
+            },
+            {
+              "name": "basis"
+            }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      }
+    },
+    {
+      "id": "uh-04-node-0000-0000-000000000000",
+      "name": "Brief note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        200
+      ],
+      "parameters": {
+        "content": "## The brief drives the search\n\n*Buyer Brief* is an n8n form. It takes **search URLs**, one per line, rather than a place name: only some sites spell a location into their URL, and those turned out not to be the ones worth scraping.\n\nBudget and bedrooms are optional and applied **after** the scrape, in *Rank by Value* — a home a little over budget that is well under what it should cost is still worth seeing. Filter on the portal for the hard limits.\n\n*Max pages per search* bounds what each submission costs, and is clamped to twenty.",
+        "height": 400,
+        "width": 760,
+        "color": 7
+      }
+    },
+    {
+      "id": "uh-05-node-0000-0000-000000000000",
+      "name": "Buyer Brief",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        400
+      ],
+      "webhookId": "uh-buyer-brief-form",
+      "parameters": {
+        "formTitle": "Find under-priced homes",
+        "formDescription": "Search on your favourite listing site, filter it however you like, then paste the search URL below. Every home found is compared against others of its size in its own ZIP code, and the ones asking least come back with what to check.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Listing search URLs",
+              "fieldType": "textarea",
+              "placeholder": "https://www.redfin.com/city/30818/TX/Austin/filter/max-price=600k",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Max pages per search",
+              "fieldType": "number",
+              "placeholder": "5"
+            },
+            {
+              "fieldLabel": "Max price",
+              "fieldType": "number",
+              "placeholder": "600000"
+            },
+            {
+              "fieldLabel": "Minimum bedrooms",
+              "fieldType": "number",
+              "placeholder": "3"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "uh-06-node-0000-0000-000000000000",
+      "name": "Build the Searches",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        400
+      ],
+      "parameters": {
+        "jsCode": "// Turns the pasted searches into one scrape each.\n//\n// The brief carries URLs rather than a city because building a portal's search\n// URL from a typed place name only works for the portals that spell a place\n// into the path, and those are not the portals worth scraping: the one that\n// can be addressed that way returned ten homes a page from behind the heaviest\n// bot protection, while the richest source keys its cities on an internal id\n// no form can produce.\n//\n// Pasting the URL also hands the filtering back to the portal, which is far\n// better at it than anything reconstructable here — price, beds, property\n// type, a drawn map region — so the scrape starts already narrowed.\n\nconst brief = $input.first().json;\n\nconst urls = String(brief['Listing search URLs'] ?? '')\n  .split(/[\\r\\n,]+/)\n  .map((line) => line.trim())\n  .filter(Boolean);\n\nconst valid = urls.filter((url) => /^https?:\\/\\/[^\\s/]+\\.[^\\s/]+/i.test(url));\nif (!valid.length) {\n  throw new Error('Paste at least one listing search URL, starting with https://');\n}\n\n// Each search mints a job and is charged for it, so the count is worth bounding.\nif (valid.length > 5) {\n  throw new Error('Five searches at a time is the limit — each one mints a Gluecrawl job.');\n}\n\nconst maxPages = Math.min(Math.max(Number(brief['Max pages per search']) || 5, 1), 20);\nconst maxPrice = Number(brief['Max price']) || null;\nconst minBeds = Number(brief['Minimum bedrooms']) || null;\n\nconst hostOf = (url) => (url.split('/')[2] || '').replace(/^www\\./, '');\nconst label = [...new Set(valid.map(hostOf))].join(', ');\n\nreturn valid.map((search_url) => ({\n  json: {\n    search_url,\n    portal: hostOf(search_url),\n    label,\n    max_pages: maxPages,\n    max_price: maxPrice,\n    min_beds: minBeds,\n    searched_at: $now.toISO(),\n  },\n}));"
+      }
+    },
+    {
+      "id": "uh-07-node-0000-0000-000000000000",
+      "name": "Search Each Portal",
+      "type": "@gluecrawl/n8n-nodes-gluecrawl.gluecrawl",
+      "typeVersion": 1,
+      "position": [
+        480,
+        400
+      ],
+      "parameters": {
+        "url": "={{ $json.search_url }}",
+        "inputMode": "columns",
+        "columns": {
+          "column": [
+            {
+              "name": "listing_url",
+              "type": "url"
+            },
+            {
+              "name": "address"
+            },
+            {
+              "name": "price"
+            },
+            {
+              "name": "beds"
+            },
+            {
+              "name": "baths"
+            },
+            {
+              "name": "sqft"
+            },
+            {
+              "name": "zip_code"
+            }
+          ]
+        },
+        "maxPages": "={{ $json.max_pages }}",
+        "waitForCompletion": true,
+        "outputItems": true,
+        "timeout": 900
+      },
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "gluecrawlApi": {
+          "name": "Gluecrawl (production)"
+        }
+      }
+    },
+    {
+      "id": "uh-08-node-0000-0000-000000000000",
+      "name": "Analysis note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        740,
+        200
+      ],
+      "parameters": {
+        "content": "## What should this home cost?\n\n*Rank by Value* compares each home against other listings **in its own ZIP, of roughly its own floor area** — never a city average and never a previous week. That is what gives the first submission something to say.\n\nIt widens the basis only when it has to — to the whole ZIP, and never past it. Comparing against a city-wide figure is the one change that would make this lie: a modest home in a cheap ZIP is far below a city median every single time, so the shortlist would fill with entire cheap neighbourhoods and contain no bargain at all.\n\n**That is why the search you paste matters more than the page count.** A whole-city search scatters its homes across thirty-odd ZIP codes, so most of them end up with too few neighbours to be valued and the shortlist comes back short or empty. A search already narrowed to a neighbourhood, a ZIP, or a map region puts every home it returns into the same comparison, and needs far fewer pages to get there.",
+        "height": 400,
+        "width": 620,
+        "color": 3
+      }
+    },
+    {
+      "id": "uh-09-node-0000-0000-000000000000",
+      "name": "Honesty note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        740,
+        620
+      ],
+      "parameters": {
+        "content": "## What it refuses to do\n\n- **No comparables, no verdict.** A home whose ZIP is too thin is left out rather than measured against the city.\n- **Nothing below half the street's rate.** A gap that big is nearly always a mis-read floor area or a different kind of property, not a house going cheap.\n- **Nothing without an address.** You cannot call about a home a portal will not name.",
+        "height": 380,
+        "width": 620,
+        "color": 5
+      }
+    },
+    {
+      "id": "uh-10-node-0000-0000-000000000000",
+      "name": "Rank by Value",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        400
+      ],
+      "parameters": {
+        "jsCode": "// Works out what each home should cost, and keeps the ones asking less.\n//\n// The comparison is made inside this one scrape: a home is measured against\n// other listings in its own ZIP of roughly its own size, never against a\n// national figure or a previous week. That is what lets the first run say\n// something — there is no history to accumulate, and a level like \"the median\n// is $285/sqft\" is a fact the reader already had.\n//\n// What this cannot see is why a home is cheap. Condition, a busy road, a lease\n// on the land, an HOA: all of it is invisible in a listing card, and any of it\n// can explain the whole gap. The output is a list of homes worth a question,\n// not a list of bargains.\n\nconst MIN_COHORT = 5;         // fewer than this and the median is one opinion\nconst SIZE_BAND = 0.3;        // compare against homes within +/- 30% of the floor area\nconst MIN_DISCOUNT_PCT = 8;   // under this, the noise in a small median swamps the signal\nconst MAX_DISCOUNT_PCT = 50;  // above this it is almost always the data, not the price\nconst SHORTLIST_SIZE = 10;\n\nconst brief = $('Build the Searches').first().json;\n\nfunction toNumber(value) {\n  if (typeof value === 'number') return Number.isFinite(value) ? value : null;\n  if (typeof value !== 'string') return null;\n  const millions = /([\\d.]+)\\s*M\\b/i.exec(value);\n  if (millions) return Math.round(parseFloat(millions[1]) * 1000000);\n  const parsed = parseFloat(value.replace(/,/g, '').replace(/[^\\d.]/g, ''));\n  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;\n}\n\n// The Code sandbox does not expose URL, and parsing through it fails silently.\nfunction canonicalUrl(value) {\n  if (typeof value !== 'string') return null;\n  const withoutQuery = value.trim().split('#')[0].split('?')[0];\n  return /^https?:\\/\\/[^/]+/i.test(withoutQuery) ? withoutQuery.replace(/\\/+$/, '') : null;\n}\n\n// Portals disagree about the tail of an address — one writes \"3228 Jewelfish\n// Cove, Austin TX 78728\", another glues the city straight on as \"3228\n// Jewelfish CoveAustin, TX 78728\". The head never varies, so identity is the\n// street number, the first word of the street, and the ZIP.\nfunction houseKey(address, zip) {\n  const head = String(address ?? '').trim().match(/^(\\d+)\\s+([A-Za-z]+)/);\n  return head && zip ? (head[1] + ' ' + head[2] + ' ' + zip).toLowerCase() : null;\n}\n\n// A US address ends with its ZIP, so the last five-digit token is the ZIP even\n// when the street number is also five digits. The dedicated column cannot be\n// trusted ahead of it — the mapper fills it with the street number on some rows.\nfunction toZip(row) {\n  const inAddress = String(row.address ?? '').match(/\\b\\d{5}\\b/g);\n  if (inAddress) return inAddress[inAddress.length - 1];\n  const field = row.zip_code;\n  if (typeof field === 'number' && Number.isInteger(field) && field >= 501 && field <= 99950) {\n    return String(field).padStart(5, '0');\n  }\n  const match = String(field ?? '').match(/\\b\\d{5}\\b/);\n  return match ? match[0] : null;\n}\n\nfunction median(values) {\n  if (!values.length) return null;\n  const sorted = [...values].sort((a, b) => a - b);\n  const mid = Math.floor(sorted.length / 2);\n  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;\n}\n\nfunction quantile(sorted, q) {\n  const pos = (sorted.length - 1) * q;\n  const base = Math.floor(pos);\n  const next = sorted[base + 1] ?? sorted[base];\n  return sorted[base] + (pos - base) * (next - sorted[base]);\n}\n\nconst byKey = new Map();\nfor (const item of $input.all()) {\n  const row = item.json.data ?? item.json;\n  const listingUrl = canonicalUrl(row.listing_url);\n  const zip = toZip(row);\n  const key = houseKey(row.address, zip) ?? listingUrl;\n  if (!key || byKey.has(key)) continue;\n\n  const price = toNumber(row.price);\n  const sqft = toNumber(row.sqft);\n  byKey.set(key, {\n    address: String(row.address ?? '').trim(),\n    zip_code: zip ?? '',\n    listing_url: listingUrl ?? '',\n    source: listingUrl ? (listingUrl.split('/')[2] || '').replace('www.', '') : '',\n    price,\n    sqft,\n    beds: toNumber(row.beds),\n    baths: toNumber(row.baths),\n    price_per_sqft: price && sqft ? Math.round(price / sqft) : null,\n  });\n}\n\nconst all = [...byKey.values()];\nconst priced = all.filter((row) => row.price_per_sqft > 0 && row.zip_code);\n\n// A mis-parsed price would otherwise become a comparable and drag every home\n// measured against it.\nconst ppsfSorted = priced.map((row) => row.price_per_sqft).sort((a, b) => a - b);\nlet clean = priced;\nif (ppsfSorted.length >= 8) {\n  const q1 = quantile(ppsfSorted, 0.25);\n  const q3 = quantile(ppsfSorted, 0.75);\n  const fence = 1.5 * (q3 - q1);\n  clean = priced.filter((row) => row.price_per_sqft >= q1 - fence && row.price_per_sqft <= q3 + fence);\n}\n\n/**\n * Comparable homes, and never any further out than the ZIP.\n *\n * Widening to the whole city looks like generosity and is the one change that\n * makes this workflow lie: a modest home in a cheap ZIP is 50% under a\n * city-wide median every single time, so every cheap neighbourhood fills the\n * shortlist and nothing in it is a bargain. A home whose own ZIP has too few\n * comparables cannot be valued here, and is left out rather than flattered.\n */\nfunction cohortFor(subject) {\n  const sameZip = clean.filter((row) => row !== subject && row.zip_code === subject.zip_code);\n  const sameSize = sameZip.filter((row) => Math.abs(row.sqft - subject.sqft) <= subject.sqft * SIZE_BAND);\n  if (sameSize.length >= MIN_COHORT) {\n    return { rows: sameSize, basis: 'ZIP ' + subject.zip_code + ', similar size' };\n  }\n  if (sameZip.length >= MIN_COHORT) {\n    return { rows: sameZip, basis: 'ZIP ' + subject.zip_code + ', any size' };\n  }\n  return null;\n}\n\nconst scored = [];\nfor (const subject of clean) {\n  const cohort = cohortFor(subject);\n  if (!cohort) continue;\n  const expectedPpsf = median(cohort.rows.map((row) => row.price_per_sqft));\n  const expectedPrice = Math.round(expectedPpsf * subject.sqft);\n  scored.push({\n    ...subject,\n    expected_price: expectedPrice,\n    expected_price_per_sqft: Math.round(expectedPpsf),\n    discount_pct: Math.round(((expectedPrice - subject.price) / expectedPrice) * 1000) / 10,\n    cohort_size: cohort.rows.length,\n    basis: cohort.basis,\n  });\n}\n\nconst withinBrief = (row) =>\n  (!brief.max_price || row.price <= brief.max_price) && (!brief.min_beds || (row.beds ?? 0) >= brief.min_beds);\n\nconst matching = scored.filter(withinBrief);\n// A brief nobody can meet should say so rather than quietly widening itself.\nconst relaxed = matching.length === 0 && scored.length > 0;\nconst pool = relaxed ? scored : matching;\n\nconst shortlist = pool\n  // A gap wider than half the value of the street is nearly always a mis-read\n  // floor area or a different kind of property — a mobile home, a share, a\n  // plot — rather than a house going cheap.\n  .filter((row) => row.discount_pct >= MIN_DISCOUNT_PCT && row.discount_pct <= MAX_DISCOUNT_PCT)\n  // Nobody can act on a listing that withholds its address.\n  .filter((row) => /^\\d+\\s+[A-Za-z]/.test(row.address))\n  .sort((a, b) => b.discount_pct - a.discount_pct)\n  .slice(0, SHORTLIST_SIZE);\n\n// Where a buyer on this brief can actually shop.\nconst inBudgetByZip = {};\nfor (const row of matching) inBudgetByZip[row.zip_code] = (inBudgetByZip[row.zip_code] ?? 0) + 1;\nconst zipDepth = Object.entries(inBudgetByZip)\n  .sort((a, b) => b[1] - a[1])\n  .slice(0, 12);\n\nconst bySource = {};\nfor (const row of all) bySource[row.source || 'unknown'] = (bySource[row.source || 'unknown'] ?? 0) + 1;\n\nconst money = (value) => (value ? '$' + Math.round(Number(value)).toLocaleString('en-US') : 'n/a');\n\n// One portal runs the city onto the end of the street with no separator, so a\n// label cut at the first comma reads \"143 Desert Willow WayAustin\". Splitting\n// where a lower-case or digit meets a capital puts the boundary back.\nfunction displayAddress(row) {\n  const spaced = String(row.address ?? '').replace(/([a-z0-9])([A-Z])/g, '$1 $2');\n  const head = spaced.match(/^\\d+(?:\\s+[A-Za-z0-9#'-]+){1,3}/);\n  return head ? head[0] : spaced.split(',')[0].slice(0, 28);\n}\n\nconst criteria =\n  brief.label +\n  (brief.max_price ? ', under ' + money(brief.max_price) : '') +\n  (brief.min_beds ? ', ' + brief.min_beds + '+ beds' : '');\n\nconst briefText = [\n  'SEARCH: ' + criteria,\n  'Listings gathered: ' + all.length + ' across ' + Object.keys(bySource).length + ' portals (' + Object.entries(bySource).map(([s, n]) => s + ' ' + n).join(', ') + ')',\n  'Priced with floor area, after removing outliers: ' + clean.length,\n  'Valued against their own ZIP: ' + scored.length + ' (the rest had too few comparable listings on their own streets)',\n  'Matching the brief: ' + matching.length,\n  relaxed ? 'NOTE: nothing matched the budget or bedroom minimum, so these are the best-value homes in the city regardless of the brief.' : '',\n  '',\n  'SHORTLIST — asking below what comparable homes suggest',\n  ...(shortlist.length\n    ? shortlist.flatMap((row, index) => [\n        index + 1 + '. ' + displayAddress(row) + '  [' + row.zip_code + ']',\n        '   asking ' + money(row.price) + ' (' + money(row.price_per_sqft) + '/sqft) for ' + row.sqft.toLocaleString('en-US') + ' sqft, ' + (row.beds ?? '?') + ' bed, ' + (row.baths ?? '?') + ' bath',\n        '   comparable homes suggest ' + money(row.expected_price) + ' (' + money(row.expected_price_per_sqft) + '/sqft) — asking ' + row.discount_pct + '% less',\n        '   basis: ' + row.basis + ', ' + row.cohort_size + ' comparable listings',\n        '   ' + (row.listing_url || 'no link'),\n      ])\n    : ['   none: no home in this search is asking materially below its comparables']),\n  '',\n  'WHERE THE MATCHING HOMES ARE',\n  ...(zipDepth.length ? zipDepth.map(([zip, count]) => '- ' + zip + ': ' + count + ' listings') : ['- none']),\n].filter(Boolean).join('\\n');\n\nreturn [\n  {\n    json: {\n      searched_at: brief.searched_at,\n      label: brief.label,\n      max_price: brief.max_price,\n      min_beds: brief.min_beds,\n      criteria,\n      gathered: all.length,\n      compared: clean.length,\n      valued: scored.length,\n      matching: matching.length,\n      relaxed,\n      sources: Object.entries(bySource).map(([source, listing_count]) => ({ source, listing_count })),\n      shortlist,\n      brief: briefText,\n      discount_labels: shortlist.map(displayAddress),\n      discount_values: shortlist.map((row) => row.discount_pct),\n      zip_labels: zipDepth.map(([zip]) => zip),\n      zip_values: zipDepth.map(([, count]) => count),\n    },\n  },\n];"
+      }
+    },
+    {
+      "id": "uh-11-node-0000-0000-000000000000",
+      "name": "How Far Under Expected",
+      "type": "n8n-nodes-base.quickChart",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        400
+      ],
+      "parameters": {
+        "chartType": "bar",
+        "labelsMode": "array",
+        "labelsArray": "={{ $('Rank by Value').first().json.discount_labels }}",
+        "data": "={{ $('Rank by Value').first().json.discount_values }}",
+        "datasetOptions": {
+          "label": "% below comparable homes",
+          "backgroundColor": "#2f855a"
+        },
+        "chartOptions": {
+          "width": 900,
+          "height": 500,
+          "backgroundColor": "#ffffff",
+          "horizontal": true
+        },
+        "output": "shortlist_chart"
+      }
+    },
+    {
+      "id": "uh-12-node-0000-0000-000000000000",
+      "name": "Where the Matching Homes Are",
+      "type": "n8n-nodes-base.quickChart",
+      "typeVersion": 1,
+      "position": [
+        1280,
+        400
+      ],
+      "parameters": {
+        "chartType": "bar",
+        "labelsMode": "array",
+        "labelsArray": "={{ $('Rank by Value').first().json.zip_labels }}",
+        "data": "={{ $('Rank by Value').first().json.zip_values }}",
+        "datasetOptions": {
+          "label": "Listings matching the brief",
+          "backgroundColor": "#2b6cb0"
+        },
+        "chartOptions": {
+          "width": 900,
+          "height": 500,
+          "backgroundColor": "#ffffff"
+        },
+        "output": "zip_chart"
+      }
+    },
+    {
+      "id": "uh-13-node-0000-0000-000000000000",
+      "name": "Report note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1400,
+        200
+      ],
+      "parameters": {
+        "content": "## The numbers are computed, the words are not\n\nEvery figure the model sees was worked out in *Rank by Value*. It is asked to explain and to caution, never to calculate — a model asked for a median returns a plausible one, and a plausible valuation is worse than none.\n\nIt is also told it has no photographs and no condition report, so it raises questions rather than asserting why a home is cheap.",
+        "height": 400,
+        "width": 720,
+        "color": 6
+      }
+    },
+    {
+      "id": "uh-14-node-0000-0000-000000000000",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1520,
+        600
+      ],
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "gpt-4.1-mini"
+        },
+        "responsesApiEnabled": false,
+        "options": {}
+      },
+      "credentials": {
+        "openAiApi": {
+          "name": "OpenAI (digest)"
+        }
+      }
+    },
+    {
+      "id": "uh-15-node-0000-0000-000000000000",
+      "name": "Write the Buyer Brief",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1520,
+        400
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a buyer's agent briefing a client on homes that look under-priced against their own neighbourhood.\n\nEverything below was computed from a live scrape of two listing portals. Each home is compared against other active listings in the same ZIP of roughly the same floor area. Use the figures as given — do not recompute them or introduce numbers that are not here.\n\nYou know nothing about these homes beyond these numbers. There are no photographs, no descriptions and no condition reports. Never assert why a home is cheap; frame every explanation as a question the client should ask.\n\nWrite it as Markdown:\n\n- Open with two sentences: how much of the market was searched, and whether the shortlist looks like genuine value or like a thin market.\n- Then one short paragraph per shortlisted home, in the order given. Say what the gap is in plain money, how much the estimate rests on (a basis of five comparable homes deserves less confidence than twenty), and name two or three specific things that could explain the gap and are worth checking — age and condition, the road it sits on, flood risk, a land lease, HOA dues, an unpermitted addition.\n- Do not repeat the address, the asking price or the percentage; a table beneath your note already carries them.\n- Close with one sentence on where the client should focus first, given where the matching homes are concentrated.\n- If the shortlist is empty, say plainly that nothing in this search is asking materially below its comparables, and what widening the brief would take. Write nothing else.\n- Around 350 words. No preamble, no sign-off, no mention of these instructions.\n\n{{ $('Rank by Value').first().json.brief }}",
+        "batching": {}
+      }
+    },
+    {
+      "id": "uh-16-node-0000-0000-000000000000",
+      "name": "Assemble the Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        400
+      ],
+      "parameters": {
+        "jsCode": "// Binary does not travel with $json, so a node that reads only the model's text\n// drops the charts. Naming both fields here is what makes a Gmail or Slack node\n// downstream a one-node change.\n\nconst stats = $('Rank by Value').first().json;\n\n// The model is told not to restate the shortlist and does it anyway often\n// enough to matter, rounding its own way as it goes. The table below is the\n// authoritative one, so any table it emits is a second answer to the same\n// question — stripped here rather than argued with in the prompt.\nconst commentary = String($input.first().json.text ?? '')\n  .split('\\n')\n  .filter((line) => !line.trim().startsWith('|'))\n  .join('\\n')\n  .replace(/\\n{3,}/g, '\\n\\n')\n  .trim();\nconst money = (value) => (value ? '$' + Math.round(Number(value)).toLocaleString('en-US') : 'n/a');\n\nconst report = [\n  '# ' + stats.shortlist.length + ' homes worth a question',\n  '',\n  '**Search:** ' + stats.criteria,\n  '**' + stats.gathered + ' listings gathered** · ' + stats.compared + ' comparable on price and floor area · ' + stats.matching + ' matching the brief',\n  stats.relaxed ? '' : '',\n  ...(stats.relaxed ? ['', '> Nothing matched the budget or bedroom minimum, so this is the best value in the city regardless of the brief.'] : []),\n  '',\n  commentary.trim(),\n  '',\n  '## The shortlist',\n  '',\n  '| Home | Asking | Comparables suggest | Under by | Based on |',\n  '| --- | --- | --- | --- | --- |',\n  ...stats.shortlist.map(\n    (row) =>\n      '| [' + (row.address.split(',')[0] || row.address) + '](' + (row.listing_url || '#') + ') | ' +\n      money(row.price) + ' | ' + money(row.expected_price) + ' | ' + row.discount_pct + '% | ' +\n      row.cohort_size + ' homes, ' + row.basis + ' |',\n  ),\n  '',\n  '---',\n  '',\n  'A gap is a question, not a discount: condition, a busy road, a land lease or an HOA can explain all of it and none of them appear on a listing card.',\n].filter((line) => line !== null).join('\\n');\n\nreturn [\n  {\n    json: { ...stats, commentary, report },\n    binary: {\n      ...($('How Far Under Expected').first().binary ?? {}),\n      ...($('Where the Matching Homes Are').first().binary ?? {}),\n    },\n  },\n];"
+      }
+    },
+    {
+      "id": "uh-17-node-0000-0000-000000000000",
+      "name": "Split Out the Shortlist",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        2000,
+        400
+      ],
+      "parameters": {
+        "fieldToSplitOut": "shortlist",
+        "options": {}
+      }
+    },
+    {
+      "id": "uh-18-node-0000-0000-000000000000",
+      "name": "Log the Shortlist",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2240,
+        400
+      ],
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "home_shortlists"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "searched_at": "={{ $('Rank by Value').first().json.searched_at }}",
+            "search": "={{ $('Rank by Value').first().json.criteria }}",
+            "address": "={{ $json.address }}",
+            "zip_code": "={{ $json.zip_code }}",
+            "listing_url": "={{ $json.listing_url }}",
+            "source": "={{ $json.source }}",
+            "price": "={{ $json.price }}",
+            "sqft": "={{ $json.sqft }}",
+            "beds": "={{ $json.beds }}",
+            "price_per_sqft": "={{ $json.price_per_sqft }}",
+            "expected_price": "={{ $json.expected_price }}",
+            "discount_pct": "={{ $json.discount_pct }}",
+            "basis": "={{ $json.basis }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "searched_at",
+              "displayName": "searched_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "search",
+              "displayName": "search",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "address",
+              "displayName": "address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "zip_code",
+              "displayName": "zip_code",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "listing_url",
+              "displayName": "listing_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "price",
+              "displayName": "price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "sqft",
+              "displayName": "sqft",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "beds",
+              "displayName": "beds",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "price_per_sqft",
+              "displayName": "price_per_sqft",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "expected_price",
+              "displayName": "expected_price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "discount_pct",
+              "displayName": "discount_pct",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "basis",
+              "displayName": "basis",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "uh-19-node-0000-0000-000000000000",
+      "name": "What now",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2020,
+        620
+      ],
+      "parameters": {
+        "content": "## What you can do now\n\n*Assemble the Report* carries the finished Markdown and both charts as binary fields `shortlist_chart` and `zip_chart`. Everything below hangs off it.\n\n- **Send it.** A Gmail or Slack node with those two fields attached is the whole change — and it is what makes the delay between submitting and receiving invisible.\n- **Ask the client for an email.** Add a field to the form and address the message with it, and the workflow becomes a service you can hand out.\n- **Trade the form for a schedule.** A Schedule Trigger and a fixed brief turns this into a standing watch — but a repeated identical search should reuse one job through *Run: Start* rather than minting a new one every time.\n- **Rent instead of buy.** Point the searches at rental listings and the same comparison reads as rent per square foot.\n- **Add a portal.** One more entry in *Build the Searches* is all it takes, as long as its search URL can be built from a city and a state.",
+        "height": 400,
+        "width": 620,
+        "color": 4
+      }
+    }
+  ],
+  "connections": {
+    "Set Up": {
+      "main": [
+        [
+          {
+            "node": "Create Shortlist Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buyer Brief": {
+      "main": [
+        [
+          {
+            "node": "Build the Searches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build the Searches": {
+      "main": [
+        [
+          {
+            "node": "Search Each Portal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Each Portal": {
+      "main": [
+        [
+          {
+            "node": "Rank by Value",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rank by Value": {
+      "main": [
+        [
+          {
+            "node": "How Far Under Expected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "How Far Under Expected": {
+      "main": [
+        [
+          {
+            "node": "Where the Matching Homes Are",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Where the Matching Homes Are": {
+      "main": [
+        [
+          {
+            "node": "Write the Buyer Brief",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Write the Buyer Brief",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write the Buyer Brief": {
+      "main": [
+        [
+          {
+            "node": "Assemble the Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble the Report": {
+      "main": [
+        [
+          {
+            "node": "Split Out the Shortlist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out the Shortlist": {
+      "main": [
+        [
+          {
+            "node": "Log the Shortlist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "tags": [
+    {
+      "name": "Real Estate"
+    },
+    {
+      "name": "Scraping"
+    },
+    {
+      "name": "AI"
+    }
+  ]
+}
