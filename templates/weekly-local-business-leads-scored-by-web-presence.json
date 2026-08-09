@@ -2,7 +2,8 @@
   "name": "Weekly local business leads scored by web presence",
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "binaryMode": "separate"
   },
   "tags": [
     {
@@ -18,9 +19,9 @@
   "nodes": [
     {
       "parameters": {
-        "content": "# Weekly local business leads scored by web presence\n\nPicks a fresh business-type and city each week with an LLM, mints a Gluecrawl job for that\nsearch, and scores every business it finds on how weak its web presence is \u2014 so the list that\nlands is ranked by who needs help, not just who exists.\n\n## Setup\n\n1. **Install the node.** Settings \u2192 Community nodes \u2192 Install \u2192 `@gluecrawl/n8n-nodes-gluecrawl`.\n2. **Add credentials.** A Gluecrawl API key on *Create This Week's Job*, and an OpenAI key on\n   *OpenAI Chat Model*.\n3. **Click *Set Up* once.** It creates `local_leads` and `local_segments`. Existing tables are\n   reused, so a second click is harmless.\n4. **Run the weekly branch by hand once** to see a segment picked and scored end to end.\n\n## Notes\n\n- **Each run mints a new job.** That is the design \u2014 a directory this static has nothing new to\n  say week to week, so the workflow moves to a new segment instead of re-reading the old one.\n  It also means each run carries the job-creation charge, and jobs accumulate on the account\n  until deleted.\n- **The goal string is fixed text with three slots.** The model chooses only the niche, city and\n  state. Letting it write the whole sentence would eventually rename a column and quietly break\n  the table mapping.\n- **Qualification never calls an LLM.** Every tier comes from rules you can read in\n  *Check and Score* and disagree with.\n",
-        "height": 900,
-        "width": 720,
+        "content": "# Weekly local business leads scored by web presence\n\nPicks a fresh business-type and city each week with an LLM, mints a Gluecrawl job for that\nsearch, and scores every business it finds on how weak its web presence is — so the list that\nlands is ranked by who needs help, not just who exists.\n\n## Setup\n\n1. **Install the node.** Settings → Community nodes → Install → `@gluecrawl/n8n-nodes-gluecrawl`.\n2. **Add credentials.** A Gluecrawl API key on *Create This Week's Job*, and an OpenAI key on\n   *OpenAI Chat Model*.\n3. **Click *Set Up* once.** It creates `local_leads` and `local_segments`. Existing tables are\n   reused, so a second click is harmless.\n4. **Run the weekly branch by hand once** to see a segment picked and scored end to end.\n\n## Notes\n\n- **Each run mints a new job.** That is the design — a directory this static has nothing new to\n  say week to week, so the workflow moves to a new segment instead of re-reading the old one.\n  It also means each run carries the job-creation charge, and jobs accumulate on the account\n  until deleted.\n- **The goal string is fixed text with three slots.** The model chooses only the niche, city and\n  state. Letting it write the whole sentence would eventually rename a column and quietly break\n  the table mapping.\n- **Qualification never calls an LLM.** Every tier comes from rules you can read in\n  *Check and Score* and disagree with.\n",
+        "height": 644,
+        "width": 752,
         "color": 4
       },
       "id": "d1509ffe-b445-50a4-b3a3-423e3b196a95",
@@ -28,13 +29,13 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -880,
-        -420
+        -912,
+        -240
       ]
     },
     {
       "parameters": {
-        "content": "## 1 \u00b7 Set up \u2014 click once\n\nCreates `local_leads` and `local_segments`, both reused if they already exist.\n\n`local_segments` is what makes next week's pick smarter than a coin toss: it records what each\nsegment actually returned, so the picker is choosing against results rather than a list of names.\n\nNo job is created here. Jobs belong to the weekly branch, one per segment.\n",
+        "content": "## 1 · Set up — click once\n\nCreates `local_leads` and `local_segments`, both reused if they already exist.\n\n`local_segments` is what makes next week's pick smarter than a coin toss: it records what each\nsegment actually returned, so the picker is choosing against results rather than a list of names.\n\nNo job is created here. Jobs belong to the weekly branch, one per segment.\n",
         "height": 400,
         "width": 780,
         "color": 3
@@ -45,14 +46,14 @@
       "typeVersion": 1,
       "position": [
         -128,
-        -232
+        -240
       ]
     },
     {
       "parameters": {
-        "content": "## 2 \u00b7 Pick this week's segment\n\n*Read Past Segments* hands the whole history to the model, which returns a niche, a city and a\nstate \u2014 nothing else. *Build the Search URL* turns those three strings into a Manta search URL\nand the goal sentence.\n\nAn LLM chain rather than an Agent: there is no tool to call here, only a structured decision, and\nan agent loop would add failure modes without adding a capability.\n\n`page_size=200` is doing real work \u2014 one request returns 200 businesses, so Max Pages stays low\nand so does the bill.\n",
+        "content": "## 2 · Pick this week's segment\n\n*Read Past Segments* hands the whole history to the model, which returns a niche, a city and a\nstate — nothing else. *Build the Search URL* turns those three strings into a Manta search URL\nand the goal sentence.\n\nAn LLM chain rather than an Agent: there is no tool to call here, only a structured decision, and\nan agent loop would add failure modes without adding a capability.\n\n`page_size=200` is doing real work — one request returns 200 businesses, so Max Pages stays low\nand so does the bill.\n",
         "height": 560,
-        "width": 1000,
+        "width": 920,
         "color": 5
       },
       "id": "0ec66ef1-c982-5525-a6c3-62170d79c44a",
@@ -61,12 +62,12 @@
       "typeVersion": 1,
       "position": [
         -128,
-        448
+        192
       ]
     },
     {
       "parameters": {
-        "content": "## 3 \u00b7 Qualify what came back\n\n*Only New Businesses* keys on `listing_url`, the directory's own permalink. Business names are\nnot stable enough to dedupe on.\n\n*Check and Score* fetches each business's own site and scores it. Three judgements that keep the\nlist honest, all visible in the code:\n\n- **A dead domain is the finding.** Unreachable, parked, or 4xx means the listed website is gone.\n- **A script bundle is not evidence.** Too little visible text and the lead is marked unreadable\n  rather than scored as missing everything.\n- **A repeated domain is a chain.** Nobody at a franchise branch can buy a website.\n",
+        "content": "## 3 · Qualify what came back\n\n*Only New Businesses* keys on `listing_url`, the directory's own permalink. Business names are not stable enough to dedupe on.\n\n*Check and Score* fetches each business's own site and scores it. Three judgements that keep the list honest, all visible in the code:\n\n- **A dead domain is the finding.** Unreachable, parked, or 4xx means the listed website is gone.\n- **A script bundle is not evidence.** Too little visible text and the lead is marked unreadable\n  rather than scored as missing everything.\n- **A repeated domain is a chain.** Nobody at a franchise branch can buy a website.\n",
         "height": 560,
         "width": 660,
         "color": 6
@@ -76,15 +77,15 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        912,
-        448
+        832,
+        192
       ]
     },
     {
       "parameters": {
-        "content": "## 4 \u00b7 Build the call list\n\nThe brief is markdown, ranked hot before warm, and every line carries the reason \u2014 which is the\nopening sentence of the call already written for you.\n\n*Update Segment Stats* writes the counts back to `local_segments`, closing the loop the picker\nreads from next Monday.\n",
-        "height": 560,
-        "width": 560,
+        "content": "## 4 · Build the call list\n\nThe brief is markdown, ranked hot before warm, and every line carries the reason — which is the opening sentence of the call already written for you.\n\n*Update Segment Stats* writes the counts back to `local_segments`, closing the loop the picker reads from next Monday.\n",
+        "height": 400,
+        "width": 576,
         "color": 7
       },
       "id": "d1af1e51-e54d-5301-9d89-47a74dab6dc4",
@@ -92,15 +93,15 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        1616,
-        448
+        1536,
+        352
       ]
     },
     {
       "parameters": {
-        "content": "## What you can do now\n\nThe brief is `{{ $json.brief }}` on *Build the Call List*, and every lead is a row in\n`local_leads`.\n\n- **Send it.** A Gmail, Slack or Telegram node after *Build the Call List* is the whole change.\n- **Work it.** Point a HubSpot, Pipedrive or Airtable node at *Save Leads* to push the hot tier\n  into a pipeline.\n- **Personalise it.** An LLM after *Build the Call List* can turn each `defects` string into a\n  first line. Keep it downstream of the scoring, not inside it.\n- **Prune the jobs.** A Gluecrawl *Job: Delete* on segments older than a few months keeps the\n  account tidy.\n",
-        "height": 560,
-        "width": 500,
+        "content": "## What you can do now\n\nThe brief is `{{ $json.brief }}` on *Build the Call List*, and every lead is a row in `local_leads`.\n\n- **Send it.** A Gmail, Slack or Telegram node after *Build the Call List* is the whole change.\n- **Work it.** Point a HubSpot, Pipedrive or Airtable node at *Save Leads* to push the hot tier into a pipeline.\n- **Personalise it.** An LLM after *Build the Call List* can turn each `defects` string into a first line. Keep it downstream of the scoring, not inside it.\n- **Prune the jobs.** A Gluecrawl *Job: Delete* on segments older than a few months keeps the account tidy.\n",
+        "height": 336,
+        "width": 532,
         "color": 4
       },
       "id": "572a6f0c-be18-555b-be9b-ca7aa500d69b",
@@ -108,8 +109,8 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        2224,
-        448
+        2128,
+        416
       ]
     },
     {
@@ -231,8 +232,8 @@
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.3,
       "position": [
-        -48,
-        640
+        -80,
+        480
       ]
     },
     {
@@ -243,16 +244,15 @@
           "mode": "name",
           "value": "local_segments"
         },
-        "returnAll": true,
-        "options": {}
+        "returnAll": true
       },
       "id": "360dcad9-b229-5d49-9bc6-61eab9d10ae1",
       "name": "Read Past Segments",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        192,
-        640
+        160,
+        480
       ],
       "alwaysOutputData": true
     },
@@ -260,19 +260,26 @@
       "parameters": {
         "promptType": "define",
         "text": "=You pick one local-business segment to prospect this week.\n\nSegments already swept, with how many leads each returned and how many of those qualified as hot:\n{{ JSON.stringify($input.all().map(i => i.json)) }}\n\nPick a segment that is likely to beat the hot rate of the ones above. Trades and independent operators tend to have weaker web presence than professional services or franchises, and smaller cities tend to beat metros. Do not repeat any niche and city pair already listed.\n\nReturn a US city, its state spelled out in full, and a plain-language business type as someone would type it into a directory search box.",
-        "hasOutputParser": true
+        "hasOutputParser": true,
+        "batching": {}
       },
       "id": "e9ca8936-c9a0-574d-bb7d-685b713c3784",
       "name": "Choose a Segment",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.9,
       "position": [
-        432,
-        640
+        352,
+        480
       ]
     },
     {
       "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
         "options": {}
       },
       "id": "1912f55f-8d7f-5dad-9b97-05f3d9edeb74",
@@ -280,9 +287,14 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
       "position": [
-        384,
-        832
-      ]
+        336,
+        624
+      ],
+      "credentials": {
+        "openAiApi": {
+          "name": "OpenAI (digest)"
+        }
+      }
     },
     {
       "parameters": {
@@ -294,8 +306,8 @@
       "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
       "typeVersion": 1.3,
       "position": [
-        592,
-        832
+        512,
+        624
       ]
     },
     {
@@ -307,18 +319,15 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        704,
-        640
+        656,
+        480
       ]
     },
     {
       "parameters": {
         "url": "={{ $json.search_url }}",
-        "inputMode": "goal",
         "goal": "={{ $json.goal }}",
-        "maxPages": 2,
         "waitForCompletion": true,
-        "outputItems": true,
         "timeout": 900
       },
       "id": "ba50c4a4-b676-5843-929c-1b68fa41bc20",
@@ -326,12 +335,12 @@
       "type": "@gluecrawl/n8n-nodes-gluecrawl.gluecrawl",
       "typeVersion": 1,
       "position": [
-        944,
-        640
+        896,
+        592
       ],
       "credentials": {
         "gluecrawlApi": {
-          "name": "Gluecrawl account"
+          "name": "Gluecrawl (production)"
         }
       }
     },
@@ -358,21 +367,21 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        1184,
-        640
+        1136,
+        592
       ]
     },
     {
       "parameters": {
-        "jsCode": "// The fetch and the scoring share one node because they cannot be separated\n// without losing the lead. An HTTP Request node replaces the item with the\n// response, and these rows carry the only copy of the phone number \u2014 the field\n// the whole list exists for.\n//\n// Every request here is expected to fail some of the time. A domain that no\n// longer resolves is the strongest finding this workflow produces, not an\n// error, so failures are caught per lead and scored rather than thrown.\n\nconst CONCURRENCY = 8;\nconst TIMEOUT_MS = 12000;\nconst UA = 'Mozilla/5.0 (compatible; n8n-lead-qualifier)';\n\n// A page that arrives as a script bundle tells us nothing: absent markup is\n// absent evidence, not a defect. Below this many words of visible text the\n// site is judged unreadable rather than broken.\nconst MIN_VISIBLE_WORDS = 120;\n\nconst BOOKING = /calendly|opentable|resy\\.com|booksy|squareup|square\\.site|toasttab|chownow|doordash|ubereats|grubhub|acuityscheduling|setmore|schedulicity|mindbody|sevenrooms/i;\nconst ANALYTICS = /google-analytics\\.com|googletagmanager|gtag\\(|G-[A-Z0-9]{8,}|UA-\\d{4,}/i;\nconst DEPRECATED = /<font\\b|<center\\b|<marquee\\b|bgcolor=|<frameset/i;\nconst PARKED = /domain (is )?(for sale|parked)|sedoparking|hugedomains|buy this domain/i;\n\n// Weighted by what a prospect will pay to fix, not by how old the markup looks.\n// A missing booking or contact path outranks legacy HTML because it is the\n// thing the business already knows it is losing money on.\nconst RULES = [\n  ['no online booking or ordering', 3, (s) => !s.booking],\n  ['no contact form', 3, (s) => !s.form],\n  ['outdated CMS', 3, (s) => s.oldCms],\n  ['no analytics', 2, (s) => !s.analytics],\n  ['plain HTTP only', 2, (s) => !s.https],\n  ['no schema.org markup', 1, (s) => !s.schema],\n  ['no OpenGraph tags', 1, (s) => !s.og],\n  ['dated jQuery', 1, (s) => s.oldJquery],\n  ['deprecated HTML tags', 1, (s) => s.deprecated],\n  ['no favicon', 1, (s) => !s.favicon],\n];\n\nconst HOT_AT = 7;\nconst WARM_AT = 4;\n\nconst leads = $input.all().map((item) => item.json);\n\n// Parsed by regex rather than URL(): the sandbox does not expose the whole\n// WHATWG URL surface, and a listing's website field is often missing a scheme.\nconst hostOf = (url) => {\n  const match = String(url ?? '').match(/^https?:\\/\\/([^/?#]+)/i);\n  return match ? match[1].replace(/^www\\./, '').toLowerCase() : '';\n};\n\n// A domain appearing more than once in one sweep is a chain or a duplicate\n// listing. Neither can buy anything: the branch manager does not choose the\n// website. Frequency catches them without a brand list anyone has to maintain.\nconst frequency = {};\nfor (const lead of leads) {\n  const host = hostOf(lead.website);\n  if (host) frequency[host] = (frequency[host] || 0) + 1;\n}\n\n// Arrow function so `this` stays bound: the bare $helpers global does not exist\n// in the task runner, and this.helpers is the only way out to the network.\nconst fetchOnce = async (url) => {\n  const response = await this.helpers.httpRequest({\n    method: 'GET',\n    url,\n    timeout: TIMEOUT_MS,\n    headers: { 'User-Agent': UA },\n    returnFullResponse: true,\n    ignoreHttpStatusErrors: true,\n  });\n  return {\n    status: Number(response.statusCode) || 0,\n    body: typeof response.body === 'string' ? response.body : String(response.body ?? ''),\n  };\n};\n\n// HTTPS is measured by asking for it, not by reading the response: the helper\n// does not report the URL it ended on, so a site that redirects http to https\n// would otherwise be accused of serving plain HTTP. Reaching port 443 at all\n// counts, including a 404 there \u2014 the certificate is what is being tested.\nconst inspect = async (website) => {\n  const host = hostOf(website);\n  if (!host) return { ...(await fetchOnce(website)), https: /^https:/i.test(website) };\n  try {\n    return { ...(await fetchOnce(`https://${host}`)), https: true };\n  } catch {\n    return { ...(await fetchOnce(`http://${host}`)), https: false };\n  }\n};\n\nconst readSignals = (body, https) => {\n  const low = body.toLowerCase();\n  const text = body\n    .replace(/<script[\\s\\S]*?<\\/script>/gi, ' ')\n    .replace(/<style[\\s\\S]*?<\\/style>/gi, ' ')\n    .replace(/<[^>]+>/g, ' ');\n  const words = (text.match(/\\w+/g) || []).length;\n  const wpVersion = (low.match(/wp-(?:includes|content)[^\"']*[?&]ver=(\\d+)\\./) || [])[1];\n  return {\n    words,\n    https,\n    booking: BOOKING.test(body),\n    form: low.includes('<form') || low.includes('mailto:'),\n    analytics: ANALYTICS.test(body),\n    schema: low.includes('application/ld+json') || low.includes('itemtype='),\n    og: low.includes('og:title') || low.includes('property=\"og:'),\n    favicon: /rel=[\"']?(shortcut )?icon/i.test(body),\n    deprecated: DEPRECATED.test(body),\n    oldJquery: /jquery[/-][12]\\./i.test(low),\n    oldCms: wpVersion ? Number(wpVersion) <= 5 : false,\n    parked: PARKED.test(body),\n  };\n};\n\nconst qualify = async (lead) => {\n  const base = {\n    listing_url: String(lead.listing_url ?? ''),\n    business_name: String(lead.business_name ?? ''),\n    address: String(lead.address ?? ''),\n    phone: String(lead.phone ?? ''),\n    website: String(lead.website ?? ''),\n  };\n  const host = hostOf(base.website);\n\n  if (host && frequency[host] > 1) {\n    return { ...base, tier: 'skip', score: 0, site_status: 'chain', defects: '' };\n  }\n\n  // No website at all is the cleanest finding in the set and needs no fetch:\n  // a business reachable only by phone has nothing to audit.\n  if (!base.website) {\n    return {\n      ...base,\n      tier: 'hot',\n      score: 10,\n      site_status: 'none',\n      defects: 'no website at all',\n    };\n  }\n\n  let probe;\n  try {\n    probe = await inspect(base.website);\n  } catch (error) {\n    // Thrown here means DNS failure, refused connection or timeout \u2014 the\n    // listed address does not answer, which is the most urgent pitch available.\n    return {\n      ...base,\n      tier: 'hot',\n      score: 10,\n      site_status: 'dead',\n      defects: `site unreachable (${String(error.message || error).slice(0, 80)})`,\n    };\n  }\n\n  if (probe.status === 0 || probe.status >= 400) {\n    return {\n      ...base,\n      tier: probe.status === 403 || probe.status === 401 ? 'skip' : 'hot',\n      score: probe.status === 403 || probe.status === 401 ? 0 : 9,\n      site_status: probe.status === 403 || probe.status === 401 ? 'blocked' : `http ${probe.status}`,\n      defects: `site returns HTTP ${probe.status}`,\n    };\n  }\n\n  const signals = readSignals(probe.body, probe.https);\n\n  if (signals.parked) {\n    return { ...base, tier: 'hot', score: 9, site_status: 'parked', defects: 'domain parked or for sale' };\n  }\n\n  // Scoring a script bundle would flag every capability as missing and produce\n  // a confident, wrong pitch. Say so instead.\n  if (signals.words < MIN_VISIBLE_WORDS) {\n    return { ...base, tier: 'unknown', score: 0, site_status: 'js-rendered', defects: '' };\n  }\n\n  const hits = RULES.filter(([, , test]) => test(signals));\n  const score = hits.reduce((sum, [, weight]) => sum + weight, 0);\n  return {\n    ...base,\n    score,\n    tier: score >= HOT_AT ? 'hot' : score >= WARM_AT ? 'warm' : 'healthy',\n    site_status: 'live',\n    defects: hits.map(([label]) => label).join('; '),\n  };\n};\n\n// A bounded pool rather than Promise.all: a few hundred simultaneous sockets\n// from one execution is what gets an n8n instance rate-limited by its host.\nconst results = new Array(leads.length);\nlet cursor = 0;\nconst worker = async () => {\n  while (cursor < leads.length) {\n    const index = cursor++;\n    results[index] = await qualify(leads[index]);\n  }\n};\nawait Promise.all(Array.from({ length: Math.min(CONCURRENCY, leads.length) }, worker));\n\nreturn results.map((json, index) => ({ json, pairedItem: { item: index } }));\n"
+        "jsCode": "// The fetch and the scoring share one node because they cannot be separated\n// without losing the lead. An HTTP Request node replaces the item with the\n// response, and these rows carry the only copy of the phone number — the field\n// the whole list exists for.\n//\n// Every request here is expected to fail some of the time. A domain that no\n// longer resolves is the strongest finding this workflow produces, not an\n// error, so failures are caught per lead and scored rather than thrown.\n\nconst CONCURRENCY = 8;\nconst TIMEOUT_MS = 12000;\nconst UA = 'Mozilla/5.0 (compatible; n8n-lead-qualifier)';\n\n// A page that arrives as a script bundle tells us nothing: absent markup is\n// absent evidence, not a defect. Below this many words of visible text the\n// site is judged unreadable rather than broken.\nconst MIN_VISIBLE_WORDS = 120;\n\nconst BOOKING = /calendly|opentable|resy\\.com|booksy|squareup|square\\.site|toasttab|chownow|doordash|ubereats|grubhub|acuityscheduling|setmore|schedulicity|mindbody|sevenrooms/i;\nconst ANALYTICS = /google-analytics\\.com|googletagmanager|gtag\\(|G-[A-Z0-9]{8,}|UA-\\d{4,}/i;\nconst DEPRECATED = /<font\\b|<center\\b|<marquee\\b|bgcolor=|<frameset/i;\nconst PARKED = /domain (is )?(for sale|parked)|sedoparking|hugedomains|buy this domain/i;\n\n// Weighted by what a prospect will pay to fix, not by how old the markup looks.\n// A missing booking or contact path outranks legacy HTML because it is the\n// thing the business already knows it is losing money on.\nconst RULES = [\n  ['no online booking or ordering', 3, (s) => !s.booking],\n  ['no contact form', 3, (s) => !s.form],\n  ['outdated CMS', 3, (s) => s.oldCms],\n  ['no analytics', 2, (s) => !s.analytics],\n  ['plain HTTP only', 2, (s) => !s.https],\n  ['no schema.org markup', 1, (s) => !s.schema],\n  ['no OpenGraph tags', 1, (s) => !s.og],\n  ['dated jQuery', 1, (s) => s.oldJquery],\n  ['deprecated HTML tags', 1, (s) => s.deprecated],\n  ['no favicon', 1, (s) => !s.favicon],\n];\n\nconst HOT_AT = 7;\nconst WARM_AT = 4;\n\nconst leads = $input.all().map((item) => item.json);\n\n// Parsed by regex rather than URL(): the sandbox does not expose the whole\n// WHATWG URL surface, and a listing's website field is often missing a scheme.\nconst hostOf = (url) => {\n  const match = String(url ?? '').match(/^https?:\\/\\/([^/?#]+)/i);\n  return match ? match[1].replace(/^www\\./, '').toLowerCase() : '';\n};\n\n// A domain appearing more than once in one sweep is a chain or a duplicate\n// listing. Neither can buy anything: the branch manager does not choose the\n// website. Frequency catches them without a brand list anyone has to maintain.\nconst frequency = {};\nfor (const lead of leads) {\n  const host = hostOf(lead.website);\n  if (host) frequency[host] = (frequency[host] || 0) + 1;\n}\n\n// Arrow function so `this` stays bound: the bare $helpers global does not exist\n// in the task runner, and this.helpers is the only way out to the network.\nconst fetchOnce = async (url) => {\n  const response = await this.helpers.httpRequest({\n    method: 'GET',\n    url,\n    timeout: TIMEOUT_MS,\n    headers: { 'User-Agent': UA },\n    returnFullResponse: true,\n    ignoreHttpStatusErrors: true,\n  });\n  return {\n    status: Number(response.statusCode) || 0,\n    body: typeof response.body === 'string' ? response.body : String(response.body ?? ''),\n  };\n};\n\n// HTTPS is measured by asking for it, not by reading the response: the helper\n// does not report the URL it ended on, so a site that redirects http to https\n// would otherwise be accused of serving plain HTTP. Reaching port 443 at all\n// counts, including a 404 there — the certificate is what is being tested.\nconst inspect = async (website) => {\n  const host = hostOf(website);\n  if (!host) return { ...(await fetchOnce(website)), https: /^https:/i.test(website) };\n  try {\n    return { ...(await fetchOnce(`https://${host}`)), https: true };\n  } catch {\n    return { ...(await fetchOnce(`http://${host}`)), https: false };\n  }\n};\n\nconst readSignals = (body, https) => {\n  const low = body.toLowerCase();\n  const text = body\n    .replace(/<script[\\s\\S]*?<\\/script>/gi, ' ')\n    .replace(/<style[\\s\\S]*?<\\/style>/gi, ' ')\n    .replace(/<[^>]+>/g, ' ');\n  const words = (text.match(/\\w+/g) || []).length;\n  const wpVersion = (low.match(/wp-(?:includes|content)[^\"']*[?&]ver=(\\d+)\\./) || [])[1];\n  return {\n    words,\n    https,\n    booking: BOOKING.test(body),\n    form: low.includes('<form') || low.includes('mailto:'),\n    analytics: ANALYTICS.test(body),\n    schema: low.includes('application/ld+json') || low.includes('itemtype='),\n    og: low.includes('og:title') || low.includes('property=\"og:'),\n    favicon: /rel=[\"']?(shortcut )?icon/i.test(body),\n    deprecated: DEPRECATED.test(body),\n    oldJquery: /jquery[/-][12]\\./i.test(low),\n    oldCms: wpVersion ? Number(wpVersion) <= 5 : false,\n    parked: PARKED.test(body),\n  };\n};\n\nconst qualify = async (lead) => {\n  const base = {\n    listing_url: String(lead.listing_url ?? ''),\n    business_name: String(lead.business_name ?? ''),\n    address: String(lead.address ?? ''),\n    phone: String(lead.phone ?? ''),\n    website: String(lead.website ?? ''),\n  };\n  const host = hostOf(base.website);\n\n  if (host && frequency[host] > 1) {\n    return { ...base, tier: 'skip', score: 0, site_status: 'chain', defects: '' };\n  }\n\n  // No website at all is the cleanest finding in the set and needs no fetch:\n  // a business reachable only by phone has nothing to audit.\n  if (!base.website) {\n    return {\n      ...base,\n      tier: 'hot',\n      score: 10,\n      site_status: 'none',\n      defects: 'no website at all',\n    };\n  }\n\n  let probe;\n  try {\n    probe = await inspect(base.website);\n  } catch (error) {\n    // Thrown here means DNS failure, refused connection or timeout — the\n    // listed address does not answer, which is the most urgent pitch available.\n    return {\n      ...base,\n      tier: 'hot',\n      score: 10,\n      site_status: 'dead',\n      defects: `site unreachable (${String(error.message || error).slice(0, 80)})`,\n    };\n  }\n\n  if (probe.status === 0 || probe.status >= 400) {\n    return {\n      ...base,\n      tier: probe.status === 403 || probe.status === 401 ? 'skip' : 'hot',\n      score: probe.status === 403 || probe.status === 401 ? 0 : 9,\n      site_status: probe.status === 403 || probe.status === 401 ? 'blocked' : `http ${probe.status}`,\n      defects: `site returns HTTP ${probe.status}`,\n    };\n  }\n\n  const signals = readSignals(probe.body, probe.https);\n\n  if (signals.parked) {\n    return { ...base, tier: 'hot', score: 9, site_status: 'parked', defects: 'domain parked or for sale' };\n  }\n\n  // Scoring a script bundle would flag every capability as missing and produce\n  // a confident, wrong pitch. Say so instead.\n  if (signals.words < MIN_VISIBLE_WORDS) {\n    return { ...base, tier: 'unknown', score: 0, site_status: 'js-rendered', defects: '' };\n  }\n\n  const hits = RULES.filter(([, , test]) => test(signals));\n  const score = hits.reduce((sum, [, weight]) => sum + weight, 0);\n  return {\n    ...base,\n    score,\n    tier: score >= HOT_AT ? 'hot' : score >= WARM_AT ? 'warm' : 'healthy',\n    site_status: 'live',\n    defects: hits.map(([label]) => label).join('; '),\n  };\n};\n\n// A bounded pool rather than Promise.all: a few hundred simultaneous sockets\n// from one execution is what gets an n8n instance rate-limited by its host.\nconst results = new Array(leads.length);\nlet cursor = 0;\nconst worker = async () => {\n  while (cursor < leads.length) {\n    const index = cursor++;\n    results[index] = await qualify(leads[index]);\n  }\n};\nawait Promise.all(Array.from({ length: Math.min(CONCURRENCY, leads.length) }, worker));\n\nreturn results.map((json, index) => ({ json, pairedItem: { item: index } }));\n"
       },
       "id": "55d9c1a8-ac56-58f3-8488-5ba450c31226",
       "name": "Check and Score",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1408,
-        640
+        1360,
+        592
       ]
     },
     {
@@ -496,21 +505,21 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        1648,
-        640
+        1600,
+        592
       ]
     },
     {
       "parameters": {
-        "jsCode": "// Collapses the sweep into one item: the brief, plus the counts the segment\n// picker reads back next week. Ranking happens here rather than in the scorer\n// so the scorer stays a pure per-lead judgement.\n\nconst SHOW = 25;\n\nconst rows = $input.all().map((item) => item.json);\nconst segment = $('Build the Search URL').first().json;\n\nconst rank = { hot: 0, warm: 1, healthy: 2, unknown: 3, skip: 4 };\nconst worth = rows\n  .filter((row) => row.tier === 'hot' || row.tier === 'warm')\n  .sort((a, b) => rank[a.tier] - rank[b.tier] || b.score - a.score);\n\nconst count = (tier) => rows.filter((row) => row.tier === tier).length;\n\nconst line = (row) => {\n  const reason = row.defects || row.site_status;\n  return `- **${row.business_name}** \u2014 ${row.phone || 'no phone'} \u2014 ${reason}\\n  ${row.address}${row.website ? `\\n  ${row.website}` : ''}`;\n};\n\nconst brief = [\n  `# ${segment.niche} in ${segment.city}, ${segment.state}`,\n  '',\n  `${rows.length} businesses swept \u2014 ${count('hot')} hot, ${count('warm')} warm, ${count('healthy')} healthy, ${count('unknown')} unreadable, ${count('skip')} skipped.`,\n  '',\n  ...(worth.length ? worth.slice(0, SHOW).map(line) : ['Nothing qualified in this segment.']),\n  ...(worth.length > SHOW ? ['', `_${worth.length - SHOW} more in the table._`] : []),\n].join('\\n');\n\nreturn [\n  {\n    json: {\n      niche: segment.niche,\n      city: segment.city,\n      state: segment.state,\n      search_url: segment.search_url,\n      leads_found: rows.length,\n      tier_a_count: count('hot'),\n      brief,\n    },\n  },\n];\n"
+        "jsCode": "// Collapses the sweep into one item: the brief, plus the counts the segment\n// picker reads back next week. Ranking happens here rather than in the scorer\n// so the scorer stays a pure per-lead judgement.\n\nconst SHOW = 25;\n\nconst rows = $input.all().map((item) => item.json);\nconst segment = $('Build the Search URL').first().json;\n\nconst rank = { hot: 0, warm: 1, healthy: 2, unknown: 3, skip: 4 };\nconst worth = rows\n  .filter((row) => row.tier === 'hot' || row.tier === 'warm')\n  .sort((a, b) => rank[a.tier] - rank[b.tier] || b.score - a.score);\n\nconst count = (tier) => rows.filter((row) => row.tier === tier).length;\n\nconst line = (row) => {\n  const reason = row.defects || row.site_status;\n  return `- **${row.business_name}** — ${row.phone || 'no phone'} — ${reason}\\n  ${row.address}${row.website ? `\\n  ${row.website}` : ''}`;\n};\n\nconst brief = [\n  `# ${segment.niche} in ${segment.city}, ${segment.state}`,\n  '',\n  `${rows.length} businesses swept — ${count('hot')} hot, ${count('warm')} warm, ${count('healthy')} healthy, ${count('unknown')} unreadable, ${count('skip')} skipped.`,\n  '',\n  ...(worth.length ? worth.slice(0, SHOW).map(line) : ['Nothing qualified in this segment.']),\n  ...(worth.length > SHOW ? ['', `_${worth.length - SHOW} more in the table._`] : []),\n].join('\\n');\n\nreturn [\n  {\n    json: {\n      niche: segment.niche,\n      city: segment.city,\n      state: segment.state,\n      search_url: segment.search_url,\n      leads_found: rows.length,\n      tier_a_count: count('hot'),\n      brief,\n    },\n  },\n];\n"
       },
       "id": "bd99ea63-e57e-5806-9a16-8cd6869cc7bd",
       "name": "Build the Call List",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1888,
-        640
+        1776,
+        592
       ]
     },
     {
@@ -611,8 +620,8 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        2128,
-        640
+        1968,
+        592
       ]
     }
   ],
