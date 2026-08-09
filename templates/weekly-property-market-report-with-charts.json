@@ -1,0 +1,1214 @@
+{
+  "name": "Weekly property market report with charts",
+  "nodes": [
+    {
+      "id": "re-01-node-0000-0000-000000000000",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        -180
+      ],
+      "parameters": {
+        "content": "# Weekly property market report with charts\n\nReruns one Gluecrawl job per listing portal every Monday, folds all three into one view of a single city, and produces a charted market report — medians by ZIP code, the city trend week over week, and every listing that cut its price.\n\n## Setup\n\n1. **Install the node.** Settings → Community nodes → Install → `@gluecrawl/n8n-nodes-gluecrawl`.\n2. **Add credentials.** A Gluecrawl API key on the Gluecrawl nodes, an OpenAI key on *OpenAI Chat Model*.\n3. **Point the three *Create … Job* nodes at your city.** They ship with Austin, TX. Each URL must be a search on the same city, or the medians mix two markets. Then set `CITY` in *Compute Market Stats* to match.\n4. **Click *Set Up* once.** It creates the two data tables, then one Gluecrawl job per portal. **Creating a job spends credits** — it runs the LLM mapper and is charged upfront — so get the URLs right before clicking, and click only once.\n5. **Give the jobs a minute, then pick each one** in *Realtor Listings*, *Redfin Listings* and *Homes.com Listings*. Each field lists the jobs on your account; a job still mapping cannot be run yet.\n6. Run the Monday branch by hand once to watch it end to end, then publish.\n\n## Notes\n\n- **The three jobs share one column list.** That is what makes three portals aggregable into one market — the mapper is asked for the same seven fields everywhere, so the report never has to reconcile three schemas.\n- **Reruns are the cheap path.** Creating a job runs the LLM mapper and is charged upfront. The Monday branch only ever starts a *run* on a job that already exists, billed for the pages it fetches. That is why job creation sits in setup and not on the schedule.\n- **The trend chart needs two runs.** Week one has no prior median to plot against, so it draws a single point. Nothing is wrong.\n- **Gluecrawl allows 10 run starts per minute.** Past ten portals, split them across two schedules.",
+        "height": 1180,
+        "width": 480,
+        "color": 4
+      }
+    },
+    {
+      "id": "re-02-node-0000-0000-000000000000",
+      "name": "Set Up",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -60
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "re-03-node-0000-0000-000000000000",
+      "name": "Setup note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -180
+      ],
+      "parameters": {
+        "content": "## Run once, by hand\n\nCreates the tables, then one job per portal. **Job creation spends credits and does not dedupe by URL** — clicking twice mints a second set of jobs and charges again.",
+        "height": 280,
+        "width": 1080,
+        "color": 7
+      }
+    },
+    {
+      "id": "re-04-node-0000-0000-000000000000",
+      "name": "Create Listings Table",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        180,
+        -60
+      ],
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "property_listings",
+        "columns": {
+          "column": [
+            {
+              "name": "dedupe_key"
+            },
+            {
+              "name": "listing_url"
+            },
+            {
+              "name": "address"
+            },
+            {
+              "name": "zip_code"
+            },
+            {
+              "name": "source"
+            },
+            {
+              "name": "price",
+              "type": "number"
+            },
+            {
+              "name": "sqft",
+              "type": "number"
+            },
+            {
+              "name": "beds",
+              "type": "number"
+            },
+            {
+              "name": "baths",
+              "type": "number"
+            },
+            {
+              "name": "price_per_sqft",
+              "type": "number"
+            },
+            {
+              "name": "status"
+            },
+            {
+              "name": "first_seen"
+            },
+            {
+              "name": "last_seen"
+            }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      }
+    },
+    {
+      "id": "re-05-node-0000-0000-000000000000",
+      "name": "Create Snapshots Table",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        400,
+        -60
+      ],
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "market_snapshots",
+        "columns": {
+          "column": [
+            {
+              "name": "week_of"
+            },
+            {
+              "name": "city"
+            },
+            {
+              "name": "listing_count",
+              "type": "number"
+            },
+            {
+              "name": "new_count",
+              "type": "number"
+            },
+            {
+              "name": "price_drop_count",
+              "type": "number"
+            },
+            {
+              "name": "median_price",
+              "type": "number"
+            },
+            {
+              "name": "median_price_per_sqft",
+              "type": "number"
+            },
+            {
+              "name": "wow_change_pct",
+              "type": "number"
+            },
+            {
+              "name": "report"
+            }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      }
+    },
+    {
+      "id": "re-06-node-0000-0000-000000000000",
+      "name": "Create the Realtor Job",
+      "type": "@gluecrawl/n8n-nodes-gluecrawl.gluecrawl",
+      "typeVersion": 1,
+      "position": [
+        660,
+        -160
+      ],
+      "parameters": {
+        "url": "https://www.realtor.com/realestateandhomes-search/Austin_TX",
+        "inputMode": "columns",
+        "columns": {
+          "column": [
+            {
+              "name": "listing_url",
+              "type": "url"
+            },
+            {
+              "name": "address"
+            },
+            {
+              "name": "price"
+            },
+            {
+              "name": "beds"
+            },
+            {
+              "name": "baths"
+            },
+            {
+              "name": "sqft"
+            },
+            {
+              "name": "zip_code"
+            }
+          ]
+        },
+        "maxPages": 3
+      },
+      "credentials": {
+        "gluecrawlApi": {
+          "name": "Gluecrawl (production)"
+        }
+      }
+    },
+    {
+      "id": "re-07-node-0000-0000-000000000000",
+      "name": "Create the Redfin Job",
+      "type": "@gluecrawl/n8n-nodes-gluecrawl.gluecrawl",
+      "typeVersion": 1,
+      "position": [
+        660,
+        -20
+      ],
+      "parameters": {
+        "url": "https://www.redfin.com/city/30818/TX/Austin",
+        "inputMode": "columns",
+        "columns": {
+          "column": [
+            {
+              "name": "listing_url",
+              "type": "url"
+            },
+            {
+              "name": "address"
+            },
+            {
+              "name": "price"
+            },
+            {
+              "name": "beds"
+            },
+            {
+              "name": "baths"
+            },
+            {
+              "name": "sqft"
+            },
+            {
+              "name": "zip_code"
+            }
+          ]
+        },
+        "maxPages": 3
+      },
+      "credentials": {
+        "gluecrawlApi": {
+          "name": "Gluecrawl (production)"
+        }
+      }
+    },
+    {
+      "id": "re-08-node-0000-0000-000000000000",
+      "name": "Create the Homes.com Job",
+      "type": "@gluecrawl/n8n-nodes-gluecrawl.gluecrawl",
+      "typeVersion": 1,
+      "position": [
+        660,
+        120
+      ],
+      "parameters": {
+        "url": "https://www.homes.com/austin-tx/",
+        "inputMode": "columns",
+        "columns": {
+          "column": [
+            {
+              "name": "listing_url",
+              "type": "url"
+            },
+            {
+              "name": "address"
+            },
+            {
+              "name": "price"
+            },
+            {
+              "name": "beds"
+            },
+            {
+              "name": "baths"
+            },
+            {
+              "name": "sqft"
+            },
+            {
+              "name": "zip_code"
+            }
+          ]
+        },
+        "maxPages": 3
+      },
+      "credentials": {
+        "gluecrawlApi": {
+          "name": "Gluecrawl (production)"
+        }
+      }
+    },
+    {
+      "id": "re-09-node-0000-0000-000000000000",
+      "name": "Sources note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        200
+      ],
+      "parameters": {
+        "content": "## Every Monday: rerun all three portals\n\nEach *Listings* node points at one job you created above; *Scrape Each Source* starts a run on whichever job reaches it. **Max Pages is 3** — credits scale with pages fetched, and three pages of a city search is already a few hundred listings.\n\nThe two *Read* nodes hang off the trigger rather than the scrape so they run **once**, not once per listing. Both are empty on the first Monday, which is correct: everything is new, and there is no prior week.",
+        "height": 420,
+        "width": 1080,
+        "color": 5
+      }
+    },
+    {
+      "id": "re-10-node-0000-0000-000000000000",
+      "name": "Every Monday Morning",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -40,
+        400
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "re-11-node-0000-0000-000000000000",
+      "name": "Realtor Listings",
+      "type": "@gluecrawl/n8n-nodes-gluecrawl.gluecrawl",
+      "typeVersion": 1,
+      "position": [
+        200,
+        280
+      ],
+      "parameters": {
+        "operation": "get",
+        "jobId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        }
+      },
+      "credentials": {
+        "gluecrawlApi": {
+          "name": "Gluecrawl (production)"
+        }
+      }
+    },
+    {
+      "id": "re-12-node-0000-0000-000000000000",
+      "name": "Redfin Listings",
+      "type": "@gluecrawl/n8n-nodes-gluecrawl.gluecrawl",
+      "typeVersion": 1,
+      "position": [
+        200,
+        420
+      ],
+      "parameters": {
+        "operation": "get",
+        "jobId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        }
+      },
+      "credentials": {
+        "gluecrawlApi": {
+          "name": "Gluecrawl (production)"
+        }
+      }
+    },
+    {
+      "id": "re-13-node-0000-0000-000000000000",
+      "name": "Homes.com Listings",
+      "type": "@gluecrawl/n8n-nodes-gluecrawl.gluecrawl",
+      "typeVersion": 1,
+      "position": [
+        200,
+        560
+      ],
+      "parameters": {
+        "operation": "get",
+        "jobId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        }
+      },
+      "credentials": {
+        "gluecrawlApi": {
+          "name": "Gluecrawl (production)"
+        }
+      }
+    },
+    {
+      "id": "re-14-node-0000-0000-000000000000",
+      "name": "Read Known Listings",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        200,
+        700
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "property_listings"
+        },
+        "returnAll": true
+      }
+    },
+    {
+      "id": "re-15-node-0000-0000-000000000000",
+      "name": "Read Past Snapshots",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        200,
+        840
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "market_snapshots"
+        },
+        "returnAll": true
+      }
+    },
+    {
+      "id": "re-16-node-0000-0000-000000000000",
+      "name": "Merge Sources",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        460,
+        420
+      ],
+      "parameters": {
+        "numberInputs": 3
+      }
+    },
+    {
+      "id": "re-17-node-0000-0000-000000000000",
+      "name": "Scrape Each Source",
+      "type": "@gluecrawl/n8n-nodes-gluecrawl.gluecrawl",
+      "typeVersion": 1,
+      "position": [
+        680,
+        420
+      ],
+      "parameters": {
+        "resource": "run",
+        "jobId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.id }}"
+        },
+        "waitForCompletion": true,
+        "timeout": 900,
+        "options": {
+          "maxPages": 3
+        }
+      },
+      "credentials": {
+        "gluecrawlApi": {
+          "name": "Gluecrawl (production)"
+        }
+      }
+    },
+    {
+      "id": "re-18-node-0000-0000-000000000000",
+      "name": "Compare note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1060,
+        200
+      ],
+      "parameters": {
+        "content": "## What changed, not what exists\n\n*Compare With Last Week* joins the scrape against everything seen before and labels each listing **new**, **price_drop**, **price_rise** or **unchanged**.\n\nIt keys on the **address**, not the URL. The same house sits on all three portals under three URLs, and counting it three times inflates every figure in the report.",
+        "height": 420,
+        "width": 540,
+        "color": 3
+      }
+    },
+    {
+      "id": "re-19-node-0000-0000-000000000000",
+      "name": "Compare With Last Week",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        420
+      ],
+      "parameters": {
+        "jsCode": "// Joins this week's scrape against every listing seen before, so the rest of the\n// workflow can talk about what changed rather than about what exists.\n//\n// Two normalisations carry the whole comparison:\n//\n// - The listing URL is stripped of its query string. All three portals append\n//   tracking parameters that differ between runs; matched raw, every listing\n//   looks new every week and no price drop is ever detected.\n// - Listings are keyed on the address, not the URL. The same house sits on all\n//   three portals under three different URLs, and counting it three times\n//   inflates every count in the report.\n\nconst known = new Map();\nfor (const row of $('Read Known Listings').all()) {\n  known.set(row.json.dedupe_key, row.json);\n}\n\nconst today = $now.toISODate();\n\n/** Portals write prices as \"$1,250,000\", \"1.25M\", or \"From $980,000\". */\nfunction toNumber(value) {\n  if (typeof value === 'number') return Number.isFinite(value) ? value : null;\n  if (typeof value !== 'string') return null;\n  const millions = /([\\d.]+)\\s*M\\b/i.exec(value);\n  if (millions) return Math.round(parseFloat(millions[1]) * 1000000);\n  const parsed = parseFloat(value.replace(/,/g, '').replace(/[^\\d.]/g, ''));\n  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;\n}\n\nfunction canonicalUrl(value) {\n  if (typeof value !== 'string' || !value.trim()) return null;\n  try {\n    const url = new URL(value.trim());\n    url.search = '';\n    url.hash = '';\n    return url.toString().replace(/\\/$/, '');\n  } catch {\n    return null;\n  }\n}\n\n/** \"1600 Pennsylvania Ave NW, Apt 2\" and \"1600 pennsylvania ave nw apt 2\" are one house. */\nfunction canonicalAddress(value) {\n  const text = String(value ?? '').toLowerCase();\n  const withoutCity = text.split(',')[0];\n  const collapsed = withoutCity.replace(/[^a-z0-9]+/g, ' ').trim();\n  return collapsed.length >= 8 ? collapsed : null;\n}\n\n/** A five-digit ZIP, wherever on the card the portal happened to print it. */\nfunction toZip(row) {\n  for (const field of [row.zip_code, row.address]) {\n    const match = String(field ?? '').match(/\\b\\d{5}\\b/);\n    if (match) return match[0];\n  }\n  return null;\n}\n\nfunction daysBetween(from, to) {\n  const ms = new Date(to).getTime() - new Date(from).getTime();\n  return Number.isFinite(ms) ? Math.max(0, Math.round(ms / 86400000)) : 0;\n}\n\nconst byKey = new Map();\n\nfor (const item of $input.all()) {\n  const row = item.json.data ?? item.json;\n  const listingUrl = canonicalUrl(row.listing_url);\n  const key = canonicalAddress(row.address) ?? listingUrl;\n  if (!key) continue;\n\n  // First portal to list a house wins its row. Merge Sources fixes that order,\n  // so the winner is stable between weeks and its price history stays one series.\n  if (byKey.has(key)) continue;\n\n  const price = toNumber(row.price);\n  const sqft = toNumber(row.sqft);\n  const previous = known.get(key);\n  const previousPrice = previous ? toNumber(previous.price) : null;\n\n  let status = 'unchanged';\n  if (!previous) status = 'new';\n  else if (previousPrice && price && price < previousPrice) status = 'price_drop';\n  else if (previousPrice && price && price > previousPrice) status = 'price_rise';\n\n  const firstSeen = previous?.first_seen || today;\n\n  byKey.set(key, {\n    dedupe_key: key,\n    listing_url: listingUrl ?? '',\n    address: String(row.address ?? '').trim(),\n    zip_code: toZip(row) ?? '',\n    source: listingUrl ? (listingUrl.split('/')[2] || '').replace('www.', '') : '',\n    price,\n    sqft,\n    beds: toNumber(row.beds),\n    baths: toNumber(row.baths),\n    price_per_sqft: price && sqft ? Math.round(price / sqft) : null,\n    status,\n    previous_price: previousPrice,\n    drop_pct: status === 'price_drop' ? Math.round(((previousPrice - price) / previousPrice) * 1000) / 10 : null,\n    first_seen: firstSeen,\n    last_seen: today,\n    days_listed: daysBetween(firstSeen, today),\n  });\n}\n\nreturn [...byKey.values()].map((json) => ({ json }));"
+      }
+    },
+    {
+      "id": "re-20-node-0000-0000-000000000000",
+      "name": "Save Listings",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1340,
+        420
+      ],
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "property_listings"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "dedupe_key",
+              "keyValue": "={{ $json.dedupe_key }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "dedupe_key": "={{ $json.dedupe_key }}",
+            "listing_url": "={{ $json.listing_url }}",
+            "address": "={{ $json.address }}",
+            "zip_code": "={{ $json.zip_code }}",
+            "source": "={{ $json.source }}",
+            "price": "={{ $json.price }}",
+            "sqft": "={{ $json.sqft }}",
+            "beds": "={{ $json.beds }}",
+            "baths": "={{ $json.baths }}",
+            "price_per_sqft": "={{ $json.price_per_sqft }}",
+            "status": "={{ $json.status }}",
+            "first_seen": "={{ $json.first_seen }}",
+            "last_seen": "={{ $json.last_seen }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "dedupe_key",
+              "displayName": "dedupe_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "listing_url",
+              "displayName": "listing_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "address",
+              "displayName": "address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "zip_code",
+              "displayName": "zip_code",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "price",
+              "displayName": "price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "sqft",
+              "displayName": "sqft",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "beds",
+              "displayName": "beds",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "baths",
+              "displayName": "baths",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "price_per_sqft",
+              "displayName": "price_per_sqft",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "first_seen",
+              "displayName": "first_seen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "last_seen",
+              "displayName": "last_seen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "re-21-node-0000-0000-000000000000",
+      "name": "Report note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1620,
+        200
+      ],
+      "parameters": {
+        "content": "## The numbers are computed, the words are written\n\n*Compute Market Stats* does every calculation — medians by ZIP, the week-over-week move, outlier trimming — and hands the finished figures to the LLM. **A model asked to take a median will produce a plausible one**, and a plausibly wrong market report is worse than none.\n\nBoth charts come from the core QuickChart node: no credential, no extra install.",
+        "height": 420,
+        "width": 760,
+        "color": 6
+      }
+    },
+    {
+      "id": "re-22-node-0000-0000-000000000000",
+      "name": "Compute Market Stats",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        420
+      ],
+      "parameters": {
+        "jsCode": "// Every number in the report is computed here. The LLM downstream is handed the\n// finished figures and asked only to explain them — a language model asked to\n// take a median will produce a plausible one, and a market report that is\n// plausibly wrong is worse than no report.\n\nconst CITY = 'Austin, TX';        // must match the city your three search URLs cover\nconst MIN_LISTINGS_PER_ZIP = 3;   // one house is not a neighbourhood median\nconst TOP_DROPS = 10;\nconst TOP_STALE = 5;\nconst TREND_WEEKS = 12;\n\n// Read the comparison directly rather than through $input. This node sits\n// downstream of the upsert, and a Data Table node emits the row it wrote — the\n// stored columns only. The fields the report is built from (drop_pct,\n// days_listed, previous_price) exist nowhere but here.\nconst listings = $('Compare With Last Week')\n  .all()\n  .map((item) => item.json);\n\nfunction median(values) {\n  if (!values.length) return null;\n  const sorted = [...values].sort((a, b) => a - b);\n  const mid = Math.floor(sorted.length / 2);\n  return sorted.length % 2 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);\n}\n\nfunction quantile(sorted, q) {\n  const pos = (sorted.length - 1) * q;\n  const base = Math.floor(pos);\n  const rest = pos - base;\n  const next = sorted[base + 1] ?? sorted[base];\n  return sorted[base] + rest * (next - sorted[base]);\n}\n\n// A mis-parsed price or a 200-unit new-build block will otherwise drag the\n// median it is supposed to be measured against. Tukey's fence, on price per\n// square foot, drops both without needing a hand-set threshold.\nfunction withoutOutliers(rows) {\n  const values = rows.map((row) => row.price_per_sqft).sort((a, b) => a - b);\n  if (values.length < 8) return rows;\n  const q1 = quantile(values, 0.25);\n  const q3 = quantile(values, 0.75);\n  const fence = 1.5 * (q3 - q1);\n  return rows.filter((row) => row.price_per_sqft >= q1 - fence && row.price_per_sqft <= q3 + fence);\n}\n\nconst priced = withoutOutliers(listings.filter((row) => row.price_per_sqft > 0));\n\nconst byZip = new Map();\nfor (const row of priced) {\n  if (!row.zip_code) continue;\n  if (!byZip.has(row.zip_code)) byZip.set(row.zip_code, []);\n  byZip.get(row.zip_code).push(row);\n}\n\nconst zips = [...byZip.entries()]\n  .filter(([, rows]) => rows.length >= MIN_LISTINGS_PER_ZIP)\n  .map(([zip, rows]) => ({\n    zip_code: zip,\n    listing_count: rows.length,\n    median_price: median(rows.map((row) => row.price)),\n    median_price_per_sqft: median(rows.map((row) => row.price_per_sqft)),\n  }))\n  .sort((a, b) => b.median_price_per_sqft - a.median_price_per_sqft);\n\nconst medianPricePerSqft = median(priced.map((row) => row.price_per_sqft));\nconst medianPrice = median(priced.map((row) => row.price));\n\n// Past weeks, oldest first. Week one has none — the trend chart is a single\n// point until this has run twice, which is the honest shape rather than a\n// fabricated baseline.\nconst history = $('Read Past Snapshots')\n  .all()\n  .map((row) => row.json)\n  .filter((row) => row.week_of && Number(row.median_price_per_sqft) > 0)\n  .sort((a, b) => String(a.week_of).localeCompare(String(b.week_of)))\n  .slice(-(TREND_WEEKS - 1));\n\nconst lastWeek = history[history.length - 1] ?? null;\nconst wowChangePct = lastWeek\n  ? Math.round(((medianPricePerSqft - Number(lastWeek.median_price_per_sqft)) / Number(lastWeek.median_price_per_sqft)) * 1000) / 10\n  : null;\n\nconst weekOf = $now.toISODate();\nconst drops = listings\n  .filter((row) => row.status === 'price_drop')\n  .sort((a, b) => b.drop_pct - a.drop_pct)\n  .slice(0, TOP_DROPS);\nconst stale = listings\n  .filter((row) => row.days_listed >= 30)\n  .sort((a, b) => b.days_listed - a.days_listed)\n  .slice(0, TOP_STALE);\nconst fresh = listings.filter((row) => row.status === 'new');\n\nconst money = (value) => (value ? '$' + Number(value).toLocaleString('en-US') : 'n/a');\n\nconst brief = [\n  'CITY: ' + CITY,\n  'WEEK OF: ' + weekOf,\n  '',\n  'MARKET',\n  '- Listings tracked this week: ' + listings.length + ' (' + fresh.length + ' new since last week)',\n  '- Median asking price: ' + money(medianPrice),\n  '- Median price per square foot: ' + money(medianPricePerSqft),\n  '- Week over week on price per square foot: ' + (wowChangePct === null ? 'no prior week yet' : wowChangePct + '%'),\n  '- Listings that cut their price this week: ' + drops.length,\n  '',\n  'BY ZIP CODE (median price per square foot, high to low)',\n  ...zips.map((zip) => '- ' + zip.zip_code + ': ' + money(zip.median_price_per_sqft) + '/sqft, median ' + money(zip.median_price) + ', ' + zip.listing_count + ' listings'),\n  '',\n  'PRICE CUTS THIS WEEK',\n  ...(drops.length\n    ? drops.map((row) => '- ' + (row.address || row.listing_url) + ' (' + row.zip_code + '): ' + money(row.previous_price) + ' -> ' + money(row.price) + ', down ' + row.drop_pct + '%, ' + row.days_listed + ' days listed')\n    : ['- none']),\n  '',\n  'SITTING LONGEST',\n  ...(stale.length\n    ? stale.map((row) => '- ' + (row.address || row.listing_url) + ' (' + row.zip_code + '): ' + money(row.price) + ', ' + row.days_listed + ' days listed')\n    : ['- nothing over 30 days yet']),\n].join('\\n');\n\nreturn [\n  {\n    json: {\n      city: CITY,\n      week_of: weekOf,\n      listing_count: listings.length,\n      new_count: fresh.length,\n      price_drop_count: drops.length,\n      median_price: medianPrice,\n      median_price_per_sqft: medianPricePerSqft,\n      wow_change_pct: wowChangePct,\n      zips,\n      drops,\n      stale,\n      brief,\n      zip_labels: zips.map((zip) => zip.zip_code),\n      zip_values: zips.map((zip) => zip.median_price_per_sqft),\n      trend_labels: [...history.map((row) => String(row.week_of)), weekOf],\n      trend_values: [...history.map((row) => Number(row.median_price_per_sqft)), medianPricePerSqft],\n    },\n  },\n];"
+      }
+    },
+    {
+      "id": "re-23-node-0000-0000-000000000000",
+      "name": "Median Price per Sqft by ZIP",
+      "type": "n8n-nodes-base.quickChart",
+      "typeVersion": 1,
+      "position": [
+        1900,
+        420
+      ],
+      "parameters": {
+        "chartType": "bar",
+        "labelsMode": "array",
+        "labelsArray": "={{ $('Compute Market Stats').first().json.zip_labels }}",
+        "data": "={{ $('Compute Market Stats').first().json.zip_values }}",
+        "datasetOptions": {
+          "label": "Median $/sqft",
+          "backgroundColor": "#2b6cb0"
+        },
+        "chartOptions": {
+          "width": 900,
+          "height": 500,
+          "backgroundColor": "#ffffff"
+        },
+        "output": "zip_chart"
+      }
+    },
+    {
+      "id": "re-24-node-0000-0000-000000000000",
+      "name": "City Trend by Week",
+      "type": "n8n-nodes-base.quickChart",
+      "typeVersion": 1,
+      "position": [
+        2120,
+        420
+      ],
+      "parameters": {
+        "chartType": "line",
+        "labelsMode": "array",
+        "labelsArray": "={{ $('Compute Market Stats').first().json.trend_labels }}",
+        "data": "={{ $('Compute Market Stats').first().json.trend_values }}",
+        "datasetOptions": {
+          "label": "City median $/sqft",
+          "borderColor": "#2b6cb0",
+          "fill": false
+        },
+        "chartOptions": {
+          "width": 900,
+          "height": 500,
+          "backgroundColor": "#ffffff"
+        },
+        "output": "trend_chart"
+      }
+    },
+    {
+      "id": "re-25-node-0000-0000-000000000000",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        2340,
+        620
+      ],
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "gpt-4.1-mini"
+        },
+        "responsesApiEnabled": false,
+        "options": {}
+      },
+      "credentials": {
+        "openAiApi": {
+          "name": "OpenAI (digest)"
+        }
+      }
+    },
+    {
+      "id": "re-26-node-0000-0000-000000000000",
+      "name": "Write the Market Report",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        2340,
+        420
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a housing market analyst writing the weekly note for a brokerage in {{ $('Compute Market Stats').first().json.city }}.\n\nEvery figure below was computed from this week's scrape of three listing portals. Use those numbers as given — do not recompute, round differently, or introduce figures that are not here.\n\nWrite the note as Markdown:\n\n- Open with two or three sentences on what the market did this week: where the median sits, which way it moved, and whether the price cuts and the new supply agree with that direction.\n- Then a section on ZIP codes. Name the ones that stand out at both ends and say what the spread between them means for someone deciding where to list. Do not walk down the whole table — it is printed beneath your note already.\n- Then a section on the price cuts, calling out the individual listings worth a phone call and what their days-on-market suggests.\n- Close with one paragraph a broker could read out on Monday: what to tell a seller, and what to tell a buyer.\n- Where the data is thin — a ZIP with few listings, or no prior week to compare against — say so plainly instead of writing around it.\n- Around 400 words. No preamble, no sign-off, no mention of these instructions.\n\n{{ $('Compute Market Stats').first().json.brief }}",
+        "batching": {}
+      }
+    },
+    {
+      "id": "re-27-node-0000-0000-000000000000",
+      "name": "Assemble the Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2600,
+        420
+      ],
+      "parameters": {
+        "jsCode": "// Carries both chart images onto the item that leaves the workflow.\n//\n// Binary does not travel with $json: a node that reads only the LLM's text\n// output drops the PNGs QuickChart produced upstream, and the report arrives\n// with nothing to look at. Naming both binary fields here is what makes a Gmail\n// or Slack node downstream a one-node change.\n\nconst stats = $('Compute Market Stats').first().json;\nconst commentary = $input.first().json.text ?? '';\n\nconst money = (value) => (value ? '$' + Number(value).toLocaleString('en-US') : 'n/a');\nconst direction = stats.wow_change_pct === null ? '' : (stats.wow_change_pct >= 0 ? 'up ' : 'down ') + Math.abs(stats.wow_change_pct) + '% on last week';\n\nconst report = [\n  '# ' + stats.city + ' market report — week of ' + stats.week_of,\n  '',\n  '**' + stats.listing_count + ' listings tracked** · median ' + money(stats.median_price) +\n    ' · ' + money(stats.median_price_per_sqft) + '/sqft' + (direction ? ' · ' + direction : ''),\n  '**' + stats.new_count + ' new this week** · **' + stats.price_drop_count + ' price cuts**',\n  '',\n  commentary.trim(),\n  '',\n  '---',\n  '',\n  'Charts attached: median price per square foot by ZIP, and the city median by week.',\n].join('\\n');\n\nreturn [\n  {\n    json: { ...stats, commentary, report },\n    binary: {\n      ...($('Median Price per Sqft by ZIP').first().binary ?? {}),\n      ...($('City Trend by Week').first().binary ?? {}),\n    },\n  },\n];"
+      }
+    },
+    {
+      "id": "re-28-node-0000-0000-000000000000",
+      "name": "Save Snapshot",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2820,
+        420
+      ],
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "market_snapshots"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "week_of": "={{ $json.week_of }}",
+            "city": "={{ $json.city }}",
+            "listing_count": "={{ $json.listing_count }}",
+            "new_count": "={{ $json.new_count }}",
+            "price_drop_count": "={{ $json.price_drop_count }}",
+            "median_price": "={{ $json.median_price }}",
+            "median_price_per_sqft": "={{ $json.median_price_per_sqft }}",
+            "wow_change_pct": "={{ $json.wow_change_pct }}",
+            "report": "={{ $json.report }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "week_of",
+              "displayName": "week_of",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "city",
+              "displayName": "city",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "listing_count",
+              "displayName": "listing_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "new_count",
+              "displayName": "new_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "price_drop_count",
+              "displayName": "price_drop_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "median_price",
+              "displayName": "median_price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "median_price_per_sqft",
+              "displayName": "median_price_per_sqft",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "wow_change_pct",
+              "displayName": "wow_change_pct",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "report",
+              "displayName": "report",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "re-29-node-0000-0000-000000000000",
+      "name": "What now",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2420,
+        700
+      ],
+      "parameters": {
+        "content": "## What you can do now\n\nThe report lands as a row in `market_snapshots`, and both charts leave *Assemble the Report* as binary fields `zip_chart` and `trend_chart`.\n\n- **Send it.** A Gmail or Slack node with those two binary fields attached is the whole change.\n- **Alert on the cuts alone.** `drops` on *Compute Market Stats* is already ranked — filter to your price band and push it to a phone.\n- **Track rentals instead.** Point the three jobs at rental searches and the report becomes rent per square foot; nothing downstream changes.\n- **Add a portal.** One more *Create … Job* with the same column list, one more *Listings* node, one more Merge input.\n- **Widen the history.** `property_listings` accumulates every house with its first-seen date, which is a days-on-market series nobody sells you.",
+        "height": 400,
+        "width": 620,
+        "color": 4
+      }
+    }
+  ],
+  "connections": {
+    "Set Up": {
+      "main": [
+        [
+          {
+            "node": "Create Listings Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Listings Table": {
+      "main": [
+        [
+          {
+            "node": "Create Snapshots Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Snapshots Table": {
+      "main": [
+        [
+          {
+            "node": "Create the Realtor Job",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create the Redfin Job",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create the Homes.com Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every Monday Morning": {
+      "main": [
+        [
+          {
+            "node": "Realtor Listings",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Redfin Listings",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Homes.com Listings",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read Known Listings",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read Past Snapshots",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Realtor Listings": {
+      "main": [
+        [
+          {
+            "node": "Merge Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redfin Listings": {
+      "main": [
+        [
+          {
+            "node": "Merge Sources",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Homes.com Listings": {
+      "main": [
+        [
+          {
+            "node": "Merge Sources",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge Sources": {
+      "main": [
+        [
+          {
+            "node": "Scrape Each Source",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Each Source": {
+      "main": [
+        [
+          {
+            "node": "Compare With Last Week",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compare With Last Week": {
+      "main": [
+        [
+          {
+            "node": "Save Listings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Listings": {
+      "main": [
+        [
+          {
+            "node": "Compute Market Stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Market Stats": {
+      "main": [
+        [
+          {
+            "node": "Median Price per Sqft by ZIP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Median Price per Sqft by ZIP": {
+      "main": [
+        [
+          {
+            "node": "City Trend by Week",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "City Trend by Week": {
+      "main": [
+        [
+          {
+            "node": "Write the Market Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Write the Market Report",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write the Market Report": {
+      "main": [
+        [
+          {
+            "node": "Assemble the Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble the Report": {
+      "main": [
+        [
+          {
+            "node": "Save Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "tags": [
+    {
+      "name": "Real Estate"
+    },
+    {
+      "name": "Scraping"
+    },
+    {
+      "name": "Scheduled"
+    },
+    {
+      "name": "AI"
+    }
+  ]
+}

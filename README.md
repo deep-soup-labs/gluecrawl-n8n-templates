@@ -27,6 +27,12 @@ real instance, and validated in CI.
 | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
 | [Weekly local business leads scored by web presence](templates/weekly-local-business-leads-scored-by-web-presence.json) | Picks a fresh business-type and city each week with an LLM, mints a Gluecrawl job for that search, and scores every business it finds on how weak its web presence is — so the list that lands is ranked by who needs help, not just who exists. | Chain Llm, Code, Data Table, Gluecrawl, Lm Chat Open Ai, Manual Trigger, Output Parser Structured, Schedule Trigger |
 
+### Real Estate
+
+| Template                                                                                              | What it does                                                                                                                                                                                                                               | Uses                                                                                                          |
+| ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| [Weekly property market report with charts](templates/weekly-property-market-report-with-charts.json) | Reruns one Gluecrawl job per listing portal every Monday, folds all three into one view of a single city, and produces a charted market report — medians by ZIP code, the city trend week over week, and every listing that cut its price. | Chain Llm, Code, Data Table, Gluecrawl, Lm Chat Open Ai, Manual Trigger, Merge, Quick Chart, Schedule Trigger |
+
 <!-- END TEMPLATES -->
 
 ## Using a template
