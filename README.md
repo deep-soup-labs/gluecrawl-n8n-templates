@@ -21,6 +21,12 @@ real instance, and validated in CI.
 | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | [Weekly AI news digest from multiple sites](templates/weekly-ai-news-digest-from-multiple-sites.json) | Reruns one Gluecrawl job per news site every Monday, keeps every article it has ever seen in an n8n data table, and asks an LLM to write a digest of only the stories that are new this week. | Chain Llm, Code, Data Table, Gluecrawl, Lm Chat Open Ai, Manual Trigger, Merge, Schedule Trigger |
 
+### Lead Generation
+
+| Template                                                                                                                | What it does                                                                                                                                                                                                                                     | Uses                                                                                                                |
+| ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| [Weekly local business leads scored by web presence](templates/weekly-local-business-leads-scored-by-web-presence.json) | Picks a fresh business-type and city each week with an LLM, mints a Gluecrawl job for that search, and scores every business it finds on how weak its web presence is — so the list that lands is ranked by who needs help, not just who exists. | Chain Llm, Code, Data Table, Gluecrawl, Lm Chat Open Ai, Manual Trigger, Output Parser Structured, Schedule Trigger |
+
 <!-- END TEMPLATES -->
 
 ## Using a template
