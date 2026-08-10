@@ -22,7 +22,7 @@ English, and get structured rows back.
    `@gluecrawl/n8n-nodes-gluecrawl`. See the
    [node repository](https://github.com/deep-soup-labs/gluecrawl-n8n) for the full reference.
 2. **Get an API key.** Create one in the [Gluecrawl dashboard](https://www.gluecrawl.ai). API keys
-   are available on every paid plan.
+   are available on every plan, including Free.
 3. **Import the workflow.** Download the template's `.json`, then in n8n use **Workflows → Import
    from File**. Or paste the file's contents into an empty canvas.
 4. **Connect the credential.** Open the Gluecrawl node, select **Create new credential**, and paste
