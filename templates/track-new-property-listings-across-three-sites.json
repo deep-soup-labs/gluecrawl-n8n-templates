@@ -1,0 +1,844 @@
+{
+  "name": "Track new property listings across three sites",
+  "nodes": [
+    {
+      "id": "nl-01-node-0000-0000-000000000000",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -620,
+        -140
+      ],
+      "parameters": {
+        "content": "# Track new property listings across three sites\n\nReruns one Gluecrawl job per listing site every morning, keeps every home it has ever seen in a table, and emails only the ones that appeared since yesterday.\n\n## Setup\n\n1. **Install the node.** Settings → Community nodes → Install → `@gluecrawl/n8n-nodes-gluecrawl`.\n2. **Add credentials.** A Gluecrawl API key on the Gluecrawl nodes, an OpenAI key on *OpenAI Chat Model*.\n3. **Point the three *Create … Job* nodes at your city**, then **sort each search by newest on the site itself** before you save the URL. Page one is then the page that changes, which is the whole point of a short daily scrape.\n4. **Click *Set Up* once.** It creates the table, then one job per site. **Creating a job spends credits** — it runs the mapper and is charged upfront — so get the URLs right first, and click only once.\n5. **Wait for the jobs to map**, several minutes each, then pick one in each *Listings* node.\n6. Run the morning branch by hand once, then publish.\n\n## Notes\n\n- **Reruns are the cheap path.** Creating a job runs the LLM mapper and is charged upfront; the morning branch only ever starts a *run* on a job that already exists, billed for the pages it fetches. That is why job creation sits in setup and not on the schedule.\n- **The first morning is the loud one.** Nothing has been seen before, so every home is new. The table takes them all; the email is capped at fifteen so the first edition stays readable.\n- **The same house on two sites is one house.** Listings are matched on the address rather than the URL, or every site would announce the same home separately.\n- **A quiet morning sends nothing.** With no new listings there is nothing to write, and the workflow simply ends.\n- **Not every site paginates.** One tested here returns its first page whatever Max Pages says. If a site's count looks stuck, that is why — and for this workflow it matters little, since page one is where new listings appear.",
+        "height": 880,
+        "width": 500,
+        "color": 4
+      }
+    },
+    {
+      "id": "nl-02-node-0000-0000-000000000000",
+      "name": "Set Up",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -60
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "nl-03-node-0000-0000-000000000000",
+      "name": "Setup note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -140
+      ],
+      "parameters": {
+        "content": "## Run once, by hand\n\nCreates the table, then one job per site. **Job creation spends credits and does not dedupe by URL** — clicking twice mints a second set of jobs and charges again.",
+        "height": 260,
+        "width": 1000,
+        "color": 7
+      }
+    },
+    {
+      "id": "nl-04-node-0000-0000-000000000000",
+      "name": "Create Listings Table",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        180,
+        -60
+      ],
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "property_listings",
+        "columns": {
+          "column": [
+            {
+              "name": "dedupe_key"
+            },
+            {
+              "name": "listing_url"
+            },
+            {
+              "name": "address"
+            },
+            {
+              "name": "zip_code"
+            },
+            {
+              "name": "source"
+            },
+            {
+              "name": "price",
+              "type": "number"
+            },
+            {
+              "name": "sqft",
+              "type": "number"
+            },
+            {
+              "name": "beds",
+              "type": "number"
+            },
+            {
+              "name": "baths",
+              "type": "number"
+            },
+            {
+              "name": "price_per_sqft",
+              "type": "number"
+            },
+            {
+              "name": "first_seen"
+            }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      }
+    },
+    {
+      "id": "nl-05-node-0000-0000-000000000000",
+      "name": "Create the Realtor Job",
+      "type": "@gluecrawl/n8n-nodes-gluecrawl.gluecrawl",
+      "typeVersion": 1,
+      "position": [
+        440,
+        -160
+      ],
+      "parameters": {
+        "url": "https://www.realtor.com/realestateandhomes-search/Austin_TX",
+        "inputMode": "columns",
+        "columns": {
+          "column": [
+            {
+              "name": "listing_url",
+              "type": "url"
+            },
+            {
+              "name": "address"
+            },
+            {
+              "name": "price"
+            },
+            {
+              "name": "beds"
+            },
+            {
+              "name": "baths"
+            },
+            {
+              "name": "sqft"
+            },
+            {
+              "name": "zip_code"
+            }
+          ]
+        },
+        "maxPages": 3
+      },
+      "credentials": {
+        "gluecrawlApi": {
+          "name": "Gluecrawl (production)"
+        }
+      }
+    },
+    {
+      "id": "nl-06-node-0000-0000-000000000000",
+      "name": "Create the Redfin Job",
+      "type": "@gluecrawl/n8n-nodes-gluecrawl.gluecrawl",
+      "typeVersion": 1,
+      "position": [
+        440,
+        -20
+      ],
+      "parameters": {
+        "url": "https://www.redfin.com/city/30818/TX/Austin",
+        "inputMode": "columns",
+        "columns": {
+          "column": [
+            {
+              "name": "listing_url",
+              "type": "url"
+            },
+            {
+              "name": "address"
+            },
+            {
+              "name": "price"
+            },
+            {
+              "name": "beds"
+            },
+            {
+              "name": "baths"
+            },
+            {
+              "name": "sqft"
+            },
+            {
+              "name": "zip_code"
+            }
+          ]
+        },
+        "maxPages": 3
+      },
+      "credentials": {
+        "gluecrawlApi": {
+          "name": "Gluecrawl (production)"
+        }
+      }
+    },
+    {
+      "id": "nl-07-node-0000-0000-000000000000",
+      "name": "Create the Coldwell Banker Job",
+      "type": "@gluecrawl/n8n-nodes-gluecrawl.gluecrawl",
+      "typeVersion": 1,
+      "position": [
+        440,
+        120
+      ],
+      "parameters": {
+        "url": "https://www.coldwellbankerhomes.com/tx/austin/",
+        "inputMode": "columns",
+        "columns": {
+          "column": [
+            {
+              "name": "listing_url",
+              "type": "url"
+            },
+            {
+              "name": "address"
+            },
+            {
+              "name": "price"
+            },
+            {
+              "name": "beds"
+            },
+            {
+              "name": "baths"
+            },
+            {
+              "name": "sqft"
+            },
+            {
+              "name": "zip_code"
+            }
+          ]
+        },
+        "maxPages": 3
+      },
+      "credentials": {
+        "gluecrawlApi": {
+          "name": "Gluecrawl (production)"
+        }
+      }
+    },
+    {
+      "id": "nl-08-node-0000-0000-000000000000",
+      "name": "Watch note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        260
+      ],
+      "parameters": {
+        "content": "## Every morning: rerun all three, keep what is new\n\nEach *Listings* node points at one job from setup; *Scrape Each Source* starts a run on whichever reaches it, and one failing site no longer costs the others their morning.\n\n*Only New Listings* is the filter that makes this a watch rather than a scrape: a home already in the table never reaches the email again.",
+        "height": 420,
+        "width": 1180,
+        "color": 5
+      }
+    },
+    {
+      "id": "nl-09-node-0000-0000-000000000000",
+      "name": "Every Morning",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -60,
+        460
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "nl-10-node-0000-0000-000000000000",
+      "name": "Realtor Listings",
+      "type": "@gluecrawl/n8n-nodes-gluecrawl.gluecrawl",
+      "typeVersion": 1,
+      "position": [
+        180,
+        340
+      ],
+      "parameters": {
+        "operation": "get",
+        "jobId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        }
+      },
+      "credentials": {
+        "gluecrawlApi": {
+          "name": "Gluecrawl (production)"
+        }
+      }
+    },
+    {
+      "id": "nl-11-node-0000-0000-000000000000",
+      "name": "Redfin Listings",
+      "type": "@gluecrawl/n8n-nodes-gluecrawl.gluecrawl",
+      "typeVersion": 1,
+      "position": [
+        180,
+        480
+      ],
+      "parameters": {
+        "operation": "get",
+        "jobId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        }
+      },
+      "credentials": {
+        "gluecrawlApi": {
+          "name": "Gluecrawl (production)"
+        }
+      }
+    },
+    {
+      "id": "nl-12-node-0000-0000-000000000000",
+      "name": "Coldwell Banker Listings",
+      "type": "@gluecrawl/n8n-nodes-gluecrawl.gluecrawl",
+      "typeVersion": 1,
+      "position": [
+        180,
+        620
+      ],
+      "parameters": {
+        "operation": "get",
+        "jobId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        }
+      },
+      "credentials": {
+        "gluecrawlApi": {
+          "name": "Gluecrawl (production)"
+        }
+      }
+    },
+    {
+      "id": "nl-13-node-0000-0000-000000000000",
+      "name": "Merge Sources",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        420,
+        480
+      ],
+      "parameters": {
+        "numberInputs": 3
+      }
+    },
+    {
+      "id": "nl-14-node-0000-0000-000000000000",
+      "name": "Scrape Each Source",
+      "type": "@gluecrawl/n8n-nodes-gluecrawl.gluecrawl",
+      "typeVersion": 1,
+      "position": [
+        640,
+        480
+      ],
+      "parameters": {
+        "resource": "run",
+        "jobId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.id }}"
+        },
+        "waitForCompletion": true,
+        "timeout": 900,
+        "options": {
+          "maxPages": 3
+        }
+      },
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "gluecrawlApi": {
+          "name": "Gluecrawl (production)"
+        }
+      }
+    },
+    {
+      "id": "nl-15-node-0000-0000-000000000000",
+      "name": "Clean Up the Listings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        480
+      ],
+      "parameters": {
+        "jsCode": "// Puts the three portals into one shape, and collapses the same house where it\n// is listed on more than one of them.\n\nconst today = $now.toISODate();\n\n/** Portals write prices as \"$549,900\", \"1.25M\", or \"From $980,000\". */\nfunction toNumber(value) {\n  if (typeof value === 'number') return Number.isFinite(value) ? value : null;\n  if (typeof value !== 'string') return null;\n  const millions = /([\\d.]+)\\s*M\\b/i.exec(value);\n  if (millions) return Math.round(parseFloat(millions[1]) * 1000000);\n  const parsed = parseFloat(value.replace(/,/g, '').replace(/[^\\d.]/g, ''));\n  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;\n}\n\n// The Code sandbox does not expose URL. Parsing through it throws on every row\n// and the throw is easy to swallow, which loses every listing's link while\n// leaving the rest of the row looking fine.\nfunction canonicalUrl(value) {\n  if (typeof value !== 'string') return null;\n  const withoutQuery = value.trim().split('#')[0].split('?')[0];\n  return /^https?:\\/\\/[^/]+/i.test(withoutQuery) ? withoutQuery.replace(/\\/+$/, '') : null;\n}\n\n/**\n * The identity of a house, from the parts every portal agrees on.\n *\n * Matching on the listing URL instead would make the same house new again on\n * every portal that carries it, and portals disagree about the tail of an\n * address: one writes \"3228 Jewelfish Cove, Austin TX 78728\", another glues the\n * city straight on as \"3228 Jewelfish CoveAustin, TX 78728\". The head never\n * varies, so the key is the street number, the first word of the street, and\n * the ZIP.\n */\nfunction houseKey(address, zip) {\n  const head = String(address ?? '').trim().match(/^(\\d+)\\s+([A-Za-z]+)/);\n  return head && zip ? (head[1] + ' ' + head[2] + ' ' + zip).toLowerCase() : null;\n}\n\n// A US address ends with its ZIP, so the last five-digit token is the ZIP even\n// when the street number is also five digits. The dedicated column cannot be\n// trusted ahead of it: the mapper fills it with the street number on some rows.\nfunction toZip(row) {\n  const inAddress = String(row.address ?? '').match(/\\b\\d{5}\\b/g);\n  if (inAddress) return inAddress[inAddress.length - 1];\n  const field = row.zip_code;\n  if (typeof field === 'number' && Number.isInteger(field) && field >= 501 && field <= 99950) {\n    return String(field).padStart(5, '0');\n  }\n  const match = String(field ?? '').match(/\\b\\d{5}\\b/);\n  return match ? match[0] : null;\n}\n\n// One portal runs the city onto the end of the street with no separator, so an\n// address cut at the first comma reads \"143 Desert Willow WayAustin\".\nfunction tidyAddress(value) {\n  const spaced = String(value ?? '').replace(/([a-z0-9])([A-Z])/g, '$1 $2').trim();\n  return spaced.replace(/\\s+/g, ' ');\n}\n\nconst byKey = new Map();\n\nfor (const item of $input.all()) {\n  const row = item.json.data ?? item.json;\n  const listingUrl = canonicalUrl(row.listing_url);\n  const zip = toZip(row);\n  const key = houseKey(row.address, zip) ?? listingUrl;\n  if (!key || byKey.has(key)) continue;\n\n  const price = toNumber(row.price);\n  const sqft = toNumber(row.sqft);\n\n  byKey.set(key, {\n    dedupe_key: key,\n    listing_url: listingUrl ?? '',\n    address: tidyAddress(row.address),\n    zip_code: zip ?? '',\n    source: listingUrl ? (listingUrl.split('/')[2] || '').replace('www.', '') : '',\n    price,\n    sqft,\n    beds: toNumber(row.beds),\n    baths: toNumber(row.baths),\n    price_per_sqft: price && sqft ? Math.round(price / sqft) : null,\n    first_seen: today,\n  });\n}\n\nreturn [...byKey.values()].map((json) => ({ json }));"
+      }
+    },
+    {
+      "id": "nl-16-node-0000-0000-000000000000",
+      "name": "Only New Listings",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        480
+      ],
+      "parameters": {
+        "operation": "rowNotExists",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "property_listings"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "dedupe_key",
+              "keyValue": "={{ $json.dedupe_key }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "nl-17-node-0000-0000-000000000000",
+      "name": "Save Listing",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1360,
+        480
+      ],
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "property_listings"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "dedupe_key": "={{ $json.dedupe_key }}",
+            "listing_url": "={{ $json.listing_url }}",
+            "address": "={{ $json.address }}",
+            "zip_code": "={{ $json.zip_code }}",
+            "source": "={{ $json.source }}",
+            "price": "={{ $json.price }}",
+            "sqft": "={{ $json.sqft }}",
+            "beds": "={{ $json.beds }}",
+            "baths": "={{ $json.baths }}",
+            "price_per_sqft": "={{ $json.price_per_sqft }}",
+            "first_seen": "={{ $json.first_seen }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "dedupe_key",
+              "displayName": "dedupe_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "listing_url",
+              "displayName": "listing_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "address",
+              "displayName": "address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "zip_code",
+              "displayName": "zip_code",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "price",
+              "displayName": "price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "sqft",
+              "displayName": "sqft",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "beds",
+              "displayName": "beds",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "baths",
+              "displayName": "baths",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "price_per_sqft",
+              "displayName": "price_per_sqft",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "first_seen",
+              "displayName": "first_seen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "nl-18-node-0000-0000-000000000000",
+      "name": "Digest note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1500,
+        260
+      ],
+      "parameters": {
+        "content": "## The email is capped on purpose\n\n*Build the Digest* takes the first fifteen new homes and hands the model that list already written out. The model opens the email and reproduces the list — it is not asked to value anything, rank anything, or judge condition, because a listing card does not carry that.\n\nRaise `MAX_IN_EMAIL` if you want a longer edition. The table always gets every new home either way.",
+        "height": 420,
+        "width": 700,
+        "color": 6
+      }
+    },
+    {
+      "id": "nl-19-node-0000-0000-000000000000",
+      "name": "Build the Digest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        480
+      ],
+      "parameters": {
+        "jsCode": "// Builds the email from the listings that were new this morning.\n//\n// The first run has no history behind it, so every listing on every portal is\n// new — several hundred of them. The table takes all of them, because that is\n// what makes the second run meaningful, but the email takes a capped handful:\n// an opening edition that runs to hundreds of homes is not read, and it makes\n// every ordinary morning afterwards look like nothing happened.\n\nconst MAX_IN_EMAIL = 15;\n\nconst listings = $input.all().map((item) => item.json);\nconst shown = listings.slice(0, MAX_IN_EMAIL);\n\nconst money = (value) => (value ? '$' + Math.round(Number(value)).toLocaleString('en-US') : 'price not shown');\n\nconst lines = shown.map((row) => {\n  const size = row.sqft ? row.sqft.toLocaleString('en-US') + ' sqft' : 'size not shown';\n  const rooms = [row.beds ? row.beds + ' bed' : null, row.baths ? row.baths + ' bath' : null].filter(Boolean).join(', ');\n  const rate = row.price_per_sqft ? ' (' + money(row.price_per_sqft) + '/sqft)' : '';\n  return [\n    '- ' + (row.address || 'address not shown'),\n    '  ' + money(row.price) + rate + ' — ' + [rooms, size].filter(Boolean).join(', '),\n    '  ' + (row.zip_code ? 'ZIP ' + row.zip_code + ' · ' : '') + (row.source || 'unknown source'),\n    '  ' + (row.listing_url || 'no link'),\n  ].join('\\n');\n});\n\nconst bySource = {};\nfor (const row of listings) bySource[row.source || 'unknown'] = (bySource[row.source || 'unknown'] ?? 0) + 1;\n\nreturn [\n  {\n    json: {\n      new_count: listings.length,\n      shown_count: shown.length,\n      capped: listings.length > shown.length,\n      sources: Object.entries(bySource).map(([source, count]) => source + ' ' + count).join(', '),\n      listings: shown,\n      brief: lines.join('\\n\\n'),\n    },\n  },\n];"
+      }
+    },
+    {
+      "id": "nl-20-node-0000-0000-000000000000",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1840,
+        660
+      ],
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "gpt-4.1-mini"
+        },
+        "responsesApiEnabled": false,
+        "options": {}
+      },
+      "credentials": {
+        "openAiApi": {
+          "name": "OpenAI (digest)"
+        }
+      }
+    },
+    {
+      "id": "nl-21-node-0000-0000-000000000000",
+      "name": "Write the Email",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1840,
+        480
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "=Write the short internal email that goes out with this morning's new property listings.\n\n{{ $json.new_count }} homes came on since the last run, across {{ $json.sources }}.{{ $json.capped ? ' The ' + $json.shown_count + ' below are the first of them; the rest are in the table.' : '' }}\n\nRules:\n\n- Open with one sentence: how many are new, and the one thing a reader would notice from the list — a price range, a ZIP that keeps appearing, a cluster of similar homes. If nothing stands out, say the morning is quiet and leave it there.\n- Then reproduce the list below as Markdown, one home per bullet, keeping the address, the price, the size and the link. Do not reorder it, do not drop any, and do not add homes that are not here.\n- Do not estimate value, call anything a bargain, or guess at condition. You have a listing card and nothing else.\n- No preamble, no sign-off, no mention of these instructions.\n\n{{ $json.brief }}",
+        "batching": {}
+      }
+    },
+    {
+      "id": "nl-22-node-0000-0000-000000000000",
+      "name": "What now",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1760,
+        760
+      ],
+      "parameters": {
+        "content": "## What you can do now\n\n*Write the Email* leaves the finished Markdown on `{{ $json.text }}`. Everything below hangs off it.\n\n- **Send it.** A Gmail, Outlook, Slack or Telegram node is the whole change.\n- **Put it in a spreadsheet too.** A Google Sheets *Append* node after *Save Listing* mirrors every new home into a sheet you can share and sort — the shape most people want alongside the email.\n- **Watch a price, not just an arrival.** Swap *Only New Listings* for an upsert and compare the stored price with the scraped one to catch reductions on homes you already know.\n- **Narrow the watch.** Filter after *Clean Up the Listings* on ZIP, bedrooms or price, and the email becomes only the homes you would actually view.\n- **Change the market.** Nothing here is Austin-specific, or even property-specific: point the jobs at another city, at rentals, or at any listing site with a search page.",
+        "height": 400,
+        "width": 620,
+        "color": 4
+      }
+    }
+  ],
+  "connections": {
+    "Set Up": {
+      "main": [
+        [
+          {
+            "node": "Create Listings Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Listings Table": {
+      "main": [
+        [
+          {
+            "node": "Create the Realtor Job",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create the Redfin Job",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create the Coldwell Banker Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every Morning": {
+      "main": [
+        [
+          {
+            "node": "Realtor Listings",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Redfin Listings",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Coldwell Banker Listings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Realtor Listings": {
+      "main": [
+        [
+          {
+            "node": "Merge Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redfin Listings": {
+      "main": [
+        [
+          {
+            "node": "Merge Sources",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Coldwell Banker Listings": {
+      "main": [
+        [
+          {
+            "node": "Merge Sources",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge Sources": {
+      "main": [
+        [
+          {
+            "node": "Scrape Each Source",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Each Source": {
+      "main": [
+        [
+          {
+            "node": "Clean Up the Listings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean Up the Listings": {
+      "main": [
+        [
+          {
+            "node": "Only New Listings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only New Listings": {
+      "main": [
+        [
+          {
+            "node": "Save Listing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Listing": {
+      "main": [
+        [
+          {
+            "node": "Build the Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build the Digest": {
+      "main": [
+        [
+          {
+            "node": "Write the Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Write the Email",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "tags": [
+    {
+      "name": "Real Estate"
+    },
+    {
+      "name": "Scraping"
+    },
+    {
+      "name": "Scheduled"
+    }
+  ]
+}

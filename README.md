@@ -29,9 +29,9 @@ real instance, and validated in CI.
 
 ### Real Estate
 
-| Template                                                                                                      | What it does                                                                                                                                                                                                             | Uses                                                                                                          |
-| ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| [Find under-priced homes in any listing search](templates/find-under-priced-homes-in-any-listing-search.json) | Paste a search from any property site and get back the homes asking less than comparable listings in their own ZIP code suggest they should — with the size of the comparison stated, and what to check before you call. | Chain Llm, Code, Data Table, Form Trigger, Gluecrawl, Lm Chat Open Ai, Manual Trigger, Quick Chart, Split Out |
+| Template                                                                                                        | What it does                                                                                                                                                   | Uses                                                                                             |
+| --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| [Track new property listings across three sites](templates/track-new-property-listings-across-three-sites.json) | Reruns one Gluecrawl job per listing site every morning, keeps every home it has ever seen in a table, and emails only the ones that appeared since yesterday. | Chain Llm, Code, Data Table, Gluecrawl, Lm Chat Open Ai, Manual Trigger, Merge, Schedule Trigger |
 
 <!-- END TEMPLATES -->
 
