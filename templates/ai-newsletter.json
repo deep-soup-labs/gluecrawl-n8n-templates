@@ -579,7 +579,7 @@
         "model": {
           "__rl": true,
           "mode": "id",
-          "value": "gpt-4.1-mini"
+          "value": "gpt-5.6-luna"
         },
         "responsesApiEnabled": false,
         "options": {}

@@ -276,8 +276,8 @@
       "parameters": {
         "model": {
           "__rl": true,
-          "mode": "list",
-          "value": "gpt-5-mini"
+          "mode": "id",
+          "value": "gpt-5.6-luna"
         },
         "builtInTools": {},
         "options": {}
