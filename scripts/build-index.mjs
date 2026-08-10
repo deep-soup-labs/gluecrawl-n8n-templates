@@ -15,35 +15,17 @@ const END = '<!-- END TEMPLATES -->';
 
 function render(entries) {
 	if (entries.length === 0) {
-		return '_No templates published yet._\n\nThe first four are in progress — see [docs/authoring.md](docs/authoring.md).';
+		return '_No templates published yet._';
 	}
 
-	const groups = new Map();
-	for (const entry of entries) {
-		const group = entry.tags[0] ?? 'Uncategorised';
-		if (!groups.has(group)) groups.set(group, []);
-		groups.get(group).push(entry);
-	}
-
-	const sections = [];
-	for (const group of [...groups.keys()].sort()) {
-		const rows = groups
-			.get(group)
-			.map(
-				(entry) =>
-					`| [${entry.title}](templates/${entry.file}) | ${entry.description} | ${entry.integrations.join(', ')} |`,
-			);
-		sections.push(
-			[
-				`### ${group}`,
-				'',
-				'| Template | What it does | Uses |',
-				'| --- | --- | --- |',
-				...rows,
-			].join('\n'),
+	const rows = entries
+		.slice()
+		.sort((a, b) => a.title.localeCompare(b.title))
+		.map(
+			(entry) =>
+				`| [${entry.title}](templates/${entry.file}) | ${entry.description} | ${entry.integrations.join(', ')} |`,
 		);
-	}
-	return sections.join('\n\n');
+	return ['| Template | What it does | Uses |', '| --- | --- | --- |', ...rows].join('\n');
 }
 
 const entries = listTemplateFiles().map((path) => describe(readTemplate(path)));

@@ -1,5 +1,5 @@
 {
-  "name": "Weekly local business leads scored by web presence",
+  "name": "Local business leads",
   "active": false,
   "settings": {
     "executionOrder": "v1",
@@ -19,7 +19,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "# Weekly local business leads scored by web presence\n\nPicks a fresh business-type and city each week with an LLM, mints a Gluecrawl job for that\nsearch, and scores every business it finds on how weak its web presence is — so the list that\nlands is ranked by who needs help, not just who exists.\n\n## Setup\n\n1. **Install the node.** Settings → Community nodes → Install → `@gluecrawl/n8n-nodes-gluecrawl`.\n2. **Add credentials.** A Gluecrawl API key on *Create This Week's Job*, and an OpenAI key on\n   *OpenAI Chat Model*.\n3. **Click *Set Up* once.** It creates `local_leads` and `local_segments`. Existing tables are\n   reused, so a second click is harmless.\n4. **Run the weekly branch by hand once** to see a segment picked and scored end to end.\n\n## Notes\n\n- **Each run mints a new job.** That is the design — a directory this static has nothing new to\n  say week to week, so the workflow moves to a new segment instead of re-reading the old one.\n  It also means each run carries the job-creation charge, and jobs accumulate on the account\n  until deleted.\n- **The goal string is fixed text with three slots.** The model chooses only the niche, city and\n  state. Letting it write the whole sentence would eventually rename a column and quietly break\n  the table mapping.\n- **Qualification never calls an LLM.** Every tier comes from rules you can read in\n  *Check and Score* and disagree with.\n",
+        "content": "# Local business leads\n\nPicks a fresh business-type and city each week with an LLM, mints a Gluecrawl job for that\nsearch, and scores every business it finds on how weak its web presence is — so the list that\nlands is ranked by who needs help, not just who exists.\n\n## Setup\n\n1. **Install the node.** Settings → Community nodes → Install → `@gluecrawl/n8n-nodes-gluecrawl`.\n2. **Add credentials.** A Gluecrawl API key on *Create This Week's Job*, and an OpenAI key on\n   *OpenAI Chat Model*.\n3. **Click *Set Up* once.** It creates `local_leads` and `local_segments`. Existing tables are\n   reused, so a second click is harmless.\n4. **Run the weekly branch by hand once** to see a segment picked and scored end to end.\n\n## Notes\n\n- **Each run mints a new job.** That is the design — a directory this static has nothing new to\n  say week to week, so the workflow moves to a new segment instead of re-reading the old one.\n  It also means each run carries the job-creation charge, and jobs accumulate on the account\n  until deleted.\n- **The goal string is fixed text with three slots.** The model chooses only the niche, city and\n  state. Letting it write the whole sentence would eventually rename a column and quietly break\n  the table mapping.\n- **Qualification never calls an LLM.** Every tier comes from rules you can read in\n  *Check and Score* and disagree with.\n",
         "height": 644,
         "width": 752,
         "color": 4

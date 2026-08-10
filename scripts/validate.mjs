@@ -120,7 +120,7 @@ function validate(template) {
 	}
 
 	if (tagNames(workflow).length === 0) {
-		fail('no `tags` — the README index groups templates by their first tag');
+		fail("no `tags` — n8n uses them to categorize the template in the importer's instance");
 	}
 
 	if (workflow.pinData && Object.keys(workflow.pinData).length > 0) {

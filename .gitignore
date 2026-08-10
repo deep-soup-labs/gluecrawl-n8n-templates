@@ -6,11 +6,10 @@ node_modules/
 
 # Agent configuration. Kept on disk for local tooling, never published: this
 # repo is public, and these files describe cross-repo behaviour the rest of the
-# platform owns. The publishable half lives in docs/.
+# platform owns.
 #
 # CLAUDE.md and AGENTS.md are ignored as well as their local variants, so a
-# committed one can never reappear. Contributor-facing agent setup belongs in
-# docs/authoring.md, which an agent does not auto-load.
+# committed one can never reappear.
 CLAUDE.md
 CLAUDE.local.md
 AGENTS.md
