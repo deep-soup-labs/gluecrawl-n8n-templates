@@ -4,13 +4,6 @@ Ready-to-import [n8n](https://n8n.io) workflows built on
 **[Gluecrawl](https://www.gluecrawl.ai)** — point it at a URL, describe what you want in plain
 English, and get structured rows back.
 
-Gluecrawl's mapper agents work out the selectors and pagination **once**. Every later run replays
-that configuration deterministically, so a scheduled scrape costs no LLM work and returns the same
-columns every time. These templates are the shapes that model is good at.
-
-Maintained by the team that builds the node — every template here is first-party, tested against a
-real instance, and validated in CI.
-
 ## Templates
 
 <!-- BEGIN TEMPLATES -->
